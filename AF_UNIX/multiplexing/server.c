@@ -10,6 +10,43 @@
 
 #define MAX_CLIENT_SUPPORTED    32
 
+char buffer[BUFFER_SIZE];
+typedef enum{
+    ERR = 0,
+    CREATE,
+    UPDATE,
+    DELETE
+}OPCODE;
+
+typedef struct _msg_body{
+
+    char destination[16];
+    char mask;
+    char gateway_ip[16];
+    char oif[32];
+
+}msg_body_t;
+
+//msg_body_t table[MAX_CLIENT_SUPPORTED];
+//int number = 0;
+typedef struct _table_entry{
+
+    msg_body_t entry;
+    table_entry_t *next;
+
+}table_entry_t;
+
+table_entry_t head;
+
+
+int num_entries = 0;
+
+typedef struct _sync_msg{
+
+    OPCODE op_code;
+    msg_body_t *msg_body;
+}sync_msg_t;
+
 /*An array of File descriptors which the server process
  * is maintaining in order to talk with the connected clients.
  * Master skt FD is also a member of this array*/
@@ -17,7 +54,7 @@ int monitored_fd_set[MAX_CLIENT_SUPPORTED];
 
 /*Each connected client's intermediate result is 
  * maintained in this client array.*/
-int client_result[MAX_CLIENT_SUPPORTED] = {0};
+//int client_result[MAX_CLIENT_SUPPORTED] = {0};
 
 /*Remove all the FDs, if any, from the the array*/
 static void
@@ -88,13 +125,96 @@ get_max_fd(){
     return max;
 }
 
+static table_entry_t *
+check_entry(msg_body_t *msg){
+    
+    table_entry_t *n_entry = head.next;
+    while(n_entry)
+    {
+        if(strcmp(n_entry ->entry.destination, msg ->destination) == 0 && n_entry ->entry.mask == msg -> mask)
+            return n_entry;
+        n_entry = n_entry -> next;
+    }
+    return NULL;
 
+}
+
+
+static int
+create_new_entry(msg_body_t *msg){
+
+    table_entry_t *t_entry = check_entry(msg);
+    if(t_entry)
+        return 0;
+    else{
+
+        table_entry_t *new_entry = malloc(sizof(table_entry_t));
+        memcpy(&(new_entry -> entry), msg, sizeof(msg_body_t));
+        new_entry ->next = NULL;
+        table_entry_t *n_entry = head.next;
+        if(n_entry == NULL)
+            head.next = new_entry;
+        else
+        {
+            while(n_entry -> next){n_entry = n_entry -> next}
+            n_entry -> next = new_entry;
+
+        }
+        return 1;
+    }
+}
+
+static int
+update_entry(msg_body_t *msg){
+
+    table_entry_t *t_entry = check_entry(msg);
+    if(t_entry)
+    {
+        memcpy(&(t_entry -> entry), msg, sizeof(msg_body_t));
+        return 1;
+    }
+    return 0;
+}
+
+static int
+delete_entry(msg_body_t *msg){
+
+    table_entry_t *t_entry = check_entry(msg);
+    if(t_entry == NULL)
+        return 0;
+    else
+    {
+        table_entry_t *n_entry = head.next;
+        while(n_entry -> next != t_entry)
+        {n_entry = n_entry -> next}
+
+        n_entry -> next = t_entry -> next;
+        free(t_entry);
+        return 1;
+    }
+    
+}
+
+static int 
+send_updated_table(){
+
+    memset(buffer, 0, BUFFER_SIZE);
+    sprintf(buffer, "Result = %d", client_result[i]);
+
+    printf("sending final result back to client\n");
+    ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
+    if (ret == -1) {
+        perror("write");
+        exit(EXIT_FAILURE);
+    }
+}
 
 int
 main(int argc, char *argv[])
 {
     struct sockaddr_un name;
-
+    head.entry = {0};
+    head.next = NULL;
 #if 0  
     struct sockaddr_un {
         sa_family_t sun_family;               /* AF_UNIX */
@@ -106,8 +226,8 @@ main(int argc, char *argv[])
     int connection_socket;
     int data_socket;
     int result;
-    int data;
-    char buffer[BUFFER_SIZE];
+    sync_msg_t *data = malloc(sizeof(sync_msg_t));
+    
     fd_set readfds;
     int comm_socket_fd, i;
     intitiaze_monitor_fd_set();
@@ -228,24 +348,23 @@ main(int argc, char *argv[])
                     }
 
                     /* Add received summand. */
-                    memcpy(&data, buffer, sizeof(int));
-                    if(data == 0) {
+                    memset(data, 0, sizeof(sync_msg_t));
+                    memcpy(data, (sync_msg_t *)buffer, sizeof(sync_msg_t));
+                    switch(data -> op_code) {
                         /* Send result. */
-                        memset(buffer, 0, BUFFER_SIZE);
-                        sprintf(buffer, "Result = %d", client_result[i]);
+                        case CREATE:
+                            create_new_entry(data ->msg_body)
+                        case UPDATE:
+                        case DELETE:
+                        default:
 
-                        printf("sending final result back to client\n");
-                        ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
-                        if (ret == -1) {
-                            perror("write");
-                            exit(EXIT_FAILURE);
-                        }
+                       
 
                         /* Close socket. */
-                        close(comm_socket_fd);
-                        client_result[i] = 0; 
-                        remove_from_monitored_fd_set(comm_socket_fd);
-                        continue; /*go to select() and block*/
+                        // close(comm_socket_fd);
+                        // client_result[i] = 0; 
+                        // remove_from_monitored_fd_set(comm_socket_fd);
+                        // continue; /*go to select() and block*/
                     }
                     client_result[i] += data;
                 }
