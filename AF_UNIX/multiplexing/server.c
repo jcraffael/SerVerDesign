@@ -197,7 +197,7 @@ send_updated_table(int comm_socket_fd){
 
     memset(buffer, 0, BUFFER_SIZE);
     //sprintf(buffer, "Result = %d", client_result[i]);
-    memcpy(buffer, (void *)&(head.next), sizeof(table_entry_t));
+    memcpy(buffer, head.next, sizeof(table_entry_t));
     printf("sending final result back to client\n");
     int ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
     if (ret == -1) {

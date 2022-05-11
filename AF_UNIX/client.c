@@ -38,6 +38,8 @@ main(int argc, char *argv[])
     char buffer[BUFFER_SIZE];
 
     table_entry_t *head = malloc(sizeof(table_entry_t));
+    
+    //memset(&head, 0, sizeof(head));
     /* Create data socket. */
 
     data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -87,14 +89,17 @@ main(int argc, char *argv[])
         memset(buffer, 0, BUFFER_SIZE);
         
         ret = read(data_socket, buffer, BUFFER_SIZE);
+        //ret = read(data_socket, &head, BUFFER_SIZE);
         if (ret == -1) {
             perror("read");
             exit(EXIT_FAILURE);
          }
 
-        memcpy(head, (table_entry_t *)buffer, sizeof(table_entry_t));
+        //memcpy(&head, (table_entry_t *)buffer, sizeof(table_entry_t));
+        head = (table_entry_t *)buffer;
         
         puts("Updated table is:");
+        printf("%s  %s  %s\n", head -> entry.destination, head -> entry.gateway_ip, head -> entry.oif);
         struct _table_entry *next_node = head -> next;
         while(next_node)
         {
