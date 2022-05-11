@@ -20,31 +20,28 @@ typedef enum{
 
 typedef struct _msg_body{
 
-    char destination[16];
-    char mask;
+    char destination[20];
+    //char mask;
     char gateway_ip[16];
     char oif[32];
 
 }msg_body_t;
 
-//msg_body_t table[MAX_CLIENT_SUPPORTED];
-//int number = 0;
 typedef struct _table_entry{
 
     msg_body_t entry;
-    table_entry_t *next;
+    struct _table_entry *next;
 
 }table_entry_t;
 
-table_entry_t head;
-
+table_entry_t head = {{0}, NULL};
 
 int num_entries = 0;
 
 typedef struct _sync_msg{
 
     OPCODE op_code;
-    msg_body_t *msg_body;
+    msg_body_t msg_body;
 }sync_msg_t;
 
 /*An array of File descriptors which the server process
@@ -131,7 +128,7 @@ check_entry(msg_body_t *msg){
     table_entry_t *n_entry = head.next;
     while(n_entry)
     {
-        if(strcmp(n_entry ->entry.destination, msg ->destination) == 0 && n_entry ->entry.mask == msg -> mask)
+        if(strcmp(n_entry ->entry.destination, msg ->destination) == 0)
             return n_entry;
         n_entry = n_entry -> next;
     }
@@ -148,7 +145,7 @@ create_new_entry(msg_body_t *msg){
         return 0;
     else{
 
-        table_entry_t *new_entry = malloc(sizof(table_entry_t));
+        table_entry_t *new_entry = malloc(sizeof *new_entry);
         memcpy(&(new_entry -> entry), msg, sizeof(msg_body_t));
         new_entry ->next = NULL;
         table_entry_t *n_entry = head.next;
@@ -156,7 +153,7 @@ create_new_entry(msg_body_t *msg){
             head.next = new_entry;
         else
         {
-            while(n_entry -> next){n_entry = n_entry -> next}
+            while(n_entry -> next){n_entry = n_entry -> next;}
             n_entry -> next = new_entry;
 
         }
@@ -186,7 +183,7 @@ delete_entry(msg_body_t *msg){
     {
         table_entry_t *n_entry = head.next;
         while(n_entry -> next != t_entry)
-        {n_entry = n_entry -> next}
+        {n_entry = n_entry -> next;}
 
         n_entry -> next = t_entry -> next;
         free(t_entry);
@@ -196,25 +193,35 @@ delete_entry(msg_body_t *msg){
 }
 
 static int 
-send_updated_table(){
+send_updated_table(int comm_socket_fd){
 
     memset(buffer, 0, BUFFER_SIZE);
-    sprintf(buffer, "Result = %d", client_result[i]);
-
+    //sprintf(buffer, "Result = %d", client_result[i]);
+    memcpy(buffer, (void *)&(head.next), sizeof(table_entry_t));
     printf("sending final result back to client\n");
-    ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
+    int ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
     if (ret == -1) {
         perror("write");
         exit(EXIT_FAILURE);
     }
 }
 
+static int
+fill_entry(char *str1, char *str2)
+{
+    if(str2 != NULL)
+    {
+        strcpy(str1, str2);
+        return 1;
+    }
+    return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
     struct sockaddr_un name;
-    head.entry = {0};
-    head.next = NULL;
+    
 #if 0  
     struct sockaddr_un {
         sa_family_t sun_family;               /* AF_UNIX */
@@ -225,7 +232,7 @@ main(int argc, char *argv[])
     int ret;
     int connection_socket;
     int data_socket;
-    int result;
+    int msg_integrity = 0;
     sync_msg_t *data = malloc(sizeof(sync_msg_t));
     
     fd_set readfds;
@@ -349,24 +356,50 @@ main(int argc, char *argv[])
 
                     /* Add received summand. */
                     memset(data, 0, sizeof(sync_msg_t));
-                    memcpy(data, (sync_msg_t *)buffer, sizeof(sync_msg_t));
+                    char *rest = buffer;
+                    char *opcode = strtok_r(buffer, ",", &rest);
+                    char *token = strtok_r(rest, ",", &rest);
+                    data ->op_code = strtol(opcode, NULL, 0);
+                    //memcpy(data, (sync_msg_t *)buffer, sizeof(sync_msg_t));
+                    char *tk = strtok_r(token, ";", &rest);
+                    if(fill_entry(&data->msg_body.destination, tk))
+                    {
+                        
+                        tk = strtok_r(rest, ";", &rest);
+                        if(fill_entry(&data->msg_body.gateway_ip, tk))
+                        {
+                            tk = strtok_r(rest, ";", &rest);
+                            if(fill_entry(&data->msg_body.oif, tk))
+                                msg_integrity = 1;
+                        }
+                    }
+                    
+                    
+                    if(msg_integrity == 0)
+                    {
+                        puts("msg body corrupted.");
+                        continue;
+                    }
                     switch(data -> op_code) {
                         /* Send result. */
                         case CREATE:
-                            create_new_entry(data ->msg_body)
+                            create_new_entry(&data ->msg_body);
+                            break;
                         case UPDATE:
+                            update_entry(&data ->msg_body);
+                            break;
                         case DELETE:
-                        default:
+                            delete_entry(&data->msg_body);
+                            break;
 
-                       
-
+                    
                         /* Close socket. */
                         // close(comm_socket_fd);
                         // client_result[i] = 0; 
                         // remove_from_monitored_fd_set(comm_socket_fd);
-                        // continue; /*go to select() and block*/
                     }
-                    client_result[i] += data;
+                    send_updated_table(comm_socket_fd);
+                    continue; /*go to select() and block*/
                 }
             }
         }

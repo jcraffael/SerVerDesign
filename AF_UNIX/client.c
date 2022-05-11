@@ -9,15 +9,35 @@
 #define SOCKET_NAME "/tmp/DemoSocket"
 #define BUFFER_SIZE 128
 
+typedef struct _msg_body{
+
+    char destination[20];
+    //char mask;
+    char gateway_ip[16];
+    char oif[32];
+
+}msg_body_t;
+
+typedef struct _table_entry{
+
+    msg_body_t entry;
+    struct _table_entry *next;
+
+}table_entry_t;
+
+
+
+
 int
 main(int argc, char *argv[])
 {
     struct sockaddr_un addr;
-    int i;
+    char *msg = malloc(64);
     int ret;
     int data_socket;
     char buffer[BUFFER_SIZE];
 
+    table_entry_t *head = malloc(sizeof(table_entry_t));
     /* Create data socket. */
 
     data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -49,48 +69,58 @@ main(int argc, char *argv[])
     }
 
     /* Send arguments. */
-    do{
-        printf("Enter number to send to server :\n");
-        scanf("%d", &i);
-        ret = write(data_socket, &i, sizeof(int));
+    while(1){
+        memset(buffer, 0, BUFFER_SIZE);
+        // strncpy (buffer, "RES", strlen("RES"));
+        // buffer[strlen(buffer)] = '\0';
+        // printf("buffer = %s\n", buffer);
+        printf("Enter routing msg to send to server :\n");
+        scanf("%s", buffer);
+        ret = write(data_socket, buffer, sizeof(buffer));
         if (ret == -1) {
             perror("write");
             break;
         }
-        printf("No of bytes sent = %d, data sent = %d\n", ret, i); 
-    } while(i);
+        printf("No of bytes sent = %d, buffer size = %ld\n", ret, sizeof(buffer)); 
+
+         /* Receive result. */
+        memset(buffer, 0, BUFFER_SIZE);
+        
+        ret = read(data_socket, buffer, BUFFER_SIZE);
+        if (ret == -1) {
+            perror("read");
+            exit(EXIT_FAILURE);
+         }
+
+        memcpy(head, (table_entry_t *)buffer, sizeof(table_entry_t));
+        
+        puts("Updated table is:");
+        struct _table_entry *next_node = head -> next;
+        while(next_node)
+        {
+            printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
+            next_node = next_node -> next;
+        }
+        
+    } 
 
     /* Request result. */
     
-    memset(buffer, 0, BUFFER_SIZE);
-    strncpy (buffer, "RES", strlen("RES"));
-    buffer[strlen(buffer)] = '\0';
-    printf("buffer = %s\n", buffer);
-
-    ret = write(data_socket, buffer, strlen(buffer));
-    if (ret == -1) {
-        perror("write");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Receive result. */
-    memset(buffer, 0, BUFFER_SIZE);
     
-    ret = read(data_socket, buffer, BUFFER_SIZE);
-    if (ret == -1) {
-        perror("read");
-        exit(EXIT_FAILURE);
-    }
+
+    
+
+   
 
     /* Ensure buffer is 0-terminated. */
 
-    buffer[BUFFER_SIZE - 1] = 0;
+    // buffer[BUFFER_SIZE - 1] = 0;
 
-    printf("Result = %s\n", buffer);
+    // printf("Result = %s\n", buffer);
 
-    /* Close socket. */
+    // /* Close socket. */
 
-    close(data_socket);
+    // close(data_socket);
 
-    exit(EXIT_SUCCESS);
+    // exit(EXIT_SUCCESS);
 }
