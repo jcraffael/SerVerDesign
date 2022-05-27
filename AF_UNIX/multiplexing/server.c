@@ -4,45 +4,15 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include "../routing_table/table.h"
 
 #define SOCKET_NAME "/tmp/DemoSocket"
-#define BUFFER_SIZE 128
+
 
 #define MAX_CLIENT_SUPPORTED    32
-
+#define BUFFER_SIZE 128
 char buffer[BUFFER_SIZE];
-typedef enum{
-    ERR = 0,
-    CREATE,
-    UPDATE,
-    DELETE
-}OPCODE;
 
-typedef struct _msg_body{
-
-    char destination[20];
-    //char mask;
-    char gateway_ip[16];
-    char oif[32];
-
-}msg_body_t;
-
-typedef struct _table_entry{
-
-    msg_body_t entry;
-    struct _table_entry *next;
-
-}table_entry_t;
-
-table_entry_t head = {{0}, NULL};
-
-int num_entries = 0;
-
-typedef struct _sync_msg{
-
-    OPCODE op_code;
-    msg_body_t msg_body;
-}sync_msg_t;
 
 /*An array of File descriptors which the server process
  * is maintaining in order to talk with the connected clients.
@@ -122,100 +92,7 @@ get_max_fd(){
     return max;
 }
 
-static table_entry_t *
-check_entry(msg_body_t *msg){
-    
-    table_entry_t *n_entry = head.next;
-    while(n_entry)
-    {
-        if(strcmp(n_entry ->entry.destination, msg ->destination) == 0)
-            return n_entry;
-        n_entry = n_entry -> next;
-    }
-    return NULL;
-
-}
-
-
-static int
-create_new_entry(msg_body_t *msg){
-
-    table_entry_t *t_entry = check_entry(msg);
-    if(t_entry)
-        return 0;
-    else{
-
-        table_entry_t *new_entry = malloc(sizeof *new_entry);
-        memcpy(&(new_entry -> entry), msg, sizeof(msg_body_t));
-        new_entry ->next = NULL;
-        table_entry_t *n_entry = head.next;
-        if(n_entry == NULL)
-            head.next = new_entry;
-        else
-        {
-            while(n_entry -> next){n_entry = n_entry -> next;}
-            n_entry -> next = new_entry;
-
-        }
-        return 1;
-    }
-}
-
-static int
-update_entry(msg_body_t *msg){
-
-    table_entry_t *t_entry = check_entry(msg);
-    if(t_entry)
-    {
-        memcpy(&(t_entry -> entry), msg, sizeof(msg_body_t));
-        return 1;
-    }
-    return 0;
-}
-
-static int
-delete_entry(msg_body_t *msg){
-
-    table_entry_t *t_entry = check_entry(msg);
-    if(t_entry == NULL)
-        return 0;
-    else
-    {
-        table_entry_t *n_entry = head.next;
-        while(n_entry -> next != t_entry)
-        {n_entry = n_entry -> next;}
-
-        n_entry -> next = t_entry -> next;
-        free(t_entry);
-        return 1;
-    }
-    
-}
-
-static int 
-send_updated_table(int comm_socket_fd){
-
-    memset(buffer, 0, BUFFER_SIZE);
-    //sprintf(buffer, "Result = %d", client_result[i]);
-    memcpy(buffer, head.next, sizeof(table_entry_t));
-    printf("sending final result back to client\n");
-    int ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
-    if (ret == -1) {
-        perror("write");
-        exit(EXIT_FAILURE);
-    }
-}
-
-static int
-fill_entry(char *str1, char *str2)
-{
-    if(str2 != NULL)
-    {
-        strcpy(str1, str2);
-        return 1;
-    }
-    return 0;
-}
+table_entry_t head = {{0}, NULL};
 
 int
 main(int argc, char *argv[])
@@ -398,7 +275,7 @@ main(int argc, char *argv[])
                         // client_result[i] = 0; 
                         // remove_from_monitored_fd_set(comm_socket_fd);
                     }
-                    send_updated_table(comm_socket_fd);
+                    send_updated_table(comm_socket_fd, buffer, BUFFER_SIZE);
                     continue; /*go to select() and block*/
                 }
             }
