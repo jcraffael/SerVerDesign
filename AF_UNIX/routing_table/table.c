@@ -1,12 +1,13 @@
-#include "table.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "table.h"
 
 
 
-static table_entry_t *
+table_entry_t *
 check_entry(msg_body_t *msg){
     
     table_entry_t *n_entry = head.next;
@@ -21,7 +22,7 @@ check_entry(msg_body_t *msg){
 }
 
 
-static int
+int
 create_new_entry(msg_body_t *msg){
 
     table_entry_t *t_entry = check_entry(msg);
@@ -45,7 +46,7 @@ create_new_entry(msg_body_t *msg){
     }
 }
 
-static int
+int
 update_entry(msg_body_t *msg){
 
     table_entry_t *t_entry = check_entry(msg);
@@ -57,7 +58,7 @@ update_entry(msg_body_t *msg){
     return 0;
 }
 
-static int
+int
 delete_entry(msg_body_t *msg){
 
     table_entry_t *t_entry = check_entry(msg);
@@ -76,13 +77,12 @@ delete_entry(msg_body_t *msg){
     
 }
 
-static int 
+int 
 send_updated_table(int comm_socket_fd, char *buffer, int b_size){
 
-    memset(buffer, 0, b_size);
-    //sprintf(buffer, "Result = %d", client_result[i]);
-    memcpy(buffer, head.next, sizeof(table_entry_t));
-    printf("sending final result back to client\n");
+    // memset(buffer, 0, b_size);
+    // memcpy(buffer, head.next, sizeof(table_entry_t));
+    // printf("sending final result back to client\n");
     int ret = write(comm_socket_fd, buffer, b_size);
     if (ret == -1) {
         perror("write");
@@ -91,7 +91,7 @@ send_updated_table(int comm_socket_fd, char *buffer, int b_size){
     return 1;
 }
 
-static int
+int
 fill_entry(char *str1, char *str2)
 {
     if(str2 != NULL)

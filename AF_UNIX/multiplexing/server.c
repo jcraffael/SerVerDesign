@@ -92,11 +92,16 @@ get_max_fd(){
     return max;
 }
 
-table_entry_t head = {{0}, NULL};
+
 
 int
 main(int argc, char *argv[])
 {
+    table_entry_t head;
+    memset(head.entry.destination, 0, sizeof(head.entry.destination));
+    memset(head.entry.gateway_ip, 0, sizeof(head.entry.gateway_ip));
+    memset(head.entry.oif, 0, sizeof(head.entry.oif));
+    head.next = NULL;
     struct sockaddr_un name;
     
 #if 0  
@@ -237,7 +242,7 @@ main(int argc, char *argv[])
                     char *opcode = strtok_r(buffer, ",", &rest);
                     char *token = strtok_r(rest, ",", &rest);
                     data ->op_code = strtol(opcode, NULL, 0);
-                    //memcpy(data, (sync_msg_t *)buffer, sizeof(sync_msg_t));
+                    
                     char *tk = strtok_r(token, ";", &rest);
                     if(fill_entry(&data->msg_body.destination, tk))
                     {
