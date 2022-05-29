@@ -238,8 +238,9 @@ main(int argc, char *argv[])
 
                     /* Add received summand. */
                     memset(data, 0, sizeof(sync_msg_t));
-                    char *rest = buffer;
-                    char *opcode = strtok_r(buffer, ",", &rest);
+                    char rest[BUFFER_SIZE];
+                    memcpy(rest, buffer, BUFFER_SIZE);
+                    char *opcode = strtok_r(rest, ",", &rest);
                     char *token = strtok_r(rest, ",", &rest);
                     data ->op_code = strtol(opcode, NULL, 0);
                     
@@ -265,13 +266,13 @@ main(int argc, char *argv[])
                     switch(data -> op_code) {
                         /* Send result. */
                         case CREATE:
-                            create_new_entry(&data ->msg_body);
+                            create_new_entry(&data ->msg_body, &head);
                             break;
                         case UPDATE:
-                            update_entry(&data ->msg_body);
+                            update_entry(&data ->msg_body, &head);
                             break;
                         case DELETE:
-                            delete_entry(&data->msg_body);
+                            delete_entry(&data->msg_body, &head);
                             break;
 
                     
@@ -280,6 +281,7 @@ main(int argc, char *argv[])
                         // client_result[i] = 0; 
                         // remove_from_monitored_fd_set(comm_socket_fd);
                     }
+
                     send_updated_table(comm_socket_fd, buffer, BUFFER_SIZE);
                     continue; /*go to select() and block*/
                 }

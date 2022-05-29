@@ -8,9 +8,9 @@
 
 
 table_entry_t *
-check_entry(msg_body_t *msg){
+check_entry(msg_body_t *msg, table_entry_t *head){
     
-    table_entry_t *n_entry = head.next;
+    table_entry_t *n_entry = head -> next;
     while(n_entry)
     {
         if(strcmp(n_entry ->entry.destination, msg ->destination) == 0)
@@ -23,9 +23,9 @@ check_entry(msg_body_t *msg){
 
 
 int
-create_new_entry(msg_body_t *msg){
+create_new_entry(msg_body_t *msg, table_entry_t *head){
 
-    table_entry_t *t_entry = check_entry(msg);
+    table_entry_t *t_entry = check_entry(msg, head);
     if(t_entry)
         return 0;
     else{
@@ -33,9 +33,9 @@ create_new_entry(msg_body_t *msg){
         table_entry_t *new_entry = malloc(sizeof *new_entry);
         memcpy(&(new_entry -> entry), msg, sizeof(msg_body_t));
         new_entry ->next = NULL;
-        table_entry_t *n_entry = head.next;
+        table_entry_t *n_entry = head -> next;
         if(n_entry == NULL)
-            head.next = new_entry;
+            head -> next = new_entry;
         else
         {
             while(n_entry -> next){n_entry = n_entry -> next;}
@@ -47,9 +47,9 @@ create_new_entry(msg_body_t *msg){
 }
 
 int
-update_entry(msg_body_t *msg){
+update_entry(msg_body_t *msg, table_entry_t *head){
 
-    table_entry_t *t_entry = check_entry(msg);
+    table_entry_t *t_entry = check_entry(msg, head);
     if(t_entry)
     {
         memcpy(&(t_entry -> entry), msg, sizeof(msg_body_t));
@@ -59,14 +59,14 @@ update_entry(msg_body_t *msg){
 }
 
 int
-delete_entry(msg_body_t *msg){
+delete_entry(msg_body_t *msg, table_entry_t *head){
 
-    table_entry_t *t_entry = check_entry(msg);
+    table_entry_t *t_entry = check_entry(msg, head);
     if(t_entry == NULL)
         return 0;
     else
     {
-        table_entry_t *n_entry = head.next;
+        table_entry_t *n_entry = head -> next;
         while(n_entry -> next != t_entry)
         {n_entry = n_entry -> next;}
 

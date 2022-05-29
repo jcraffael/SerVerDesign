@@ -24,10 +24,6 @@ typedef struct _table_entry{
 
 }table_entry_t;
 
-table_entry_t head;
-
-
-//int num_entries = 0;
 
 typedef struct _sync_msg{
 
@@ -36,17 +32,17 @@ typedef struct _sync_msg{
 }sync_msg_t;
 
 table_entry_t *
-check_entry(msg_body_t *msg);
+check_entry(msg_body_t *msg, table_entry_t *head);
 
 
 int
-create_new_entry(msg_body_t *msg);
+create_new_entry(msg_body_t *msg, table_entry_t *head);
 
 int
-update_entry(msg_body_t *msg);
+update_entry(msg_body_t *msg, table_entry_t *head);
 
 int
-delete_entry(msg_body_t *msg);
+delete_entry(msg_body_t *msg, table_entry_t *head);
 
 int 
 send_updated_table(int comm_socket_fd, char *buffer, int b_size);

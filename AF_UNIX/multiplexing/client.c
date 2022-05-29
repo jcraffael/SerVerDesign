@@ -30,6 +30,11 @@
 int
 main(int argc, char *argv[])
 {
+    table_entry_t head;
+    memset(head.entry.destination, 0, sizeof(head.entry.destination));
+    memset(head.entry.gateway_ip, 0, sizeof(head.entry.gateway_ip));
+    memset(head.entry.oif, 0, sizeof(head.entry.oif));
+    head.next = NULL;
     struct sockaddr_un addr;
     char *msg = malloc(64);
     int ret;
@@ -37,9 +42,6 @@ main(int argc, char *argv[])
     char buffer[BUFFER_SIZE];
     sync_msg_t *data = malloc(sizeof(sync_msg_t));
 
-    table_entry_t *head = malloc(sizeof(table_entry_t));
-    
-    //memset(&head, 0, sizeof(head));
     /* Create data socket. */
 
     data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -97,8 +99,10 @@ main(int argc, char *argv[])
 
         memset(data, 0, sizeof(sync_msg_t));
         int msg_integrity = 0;
+        //char rest[BUFFER_SIZE];
+        //memcpy(rest, buffer, BUFFER_SIZE);
         char *rest = buffer;
-        char *opcode = strtok_r(buffer, ",", &rest);
+        char *opcode = strtok_r(rest, ",", &rest);
         char *token = strtok_r(rest, ",", &rest);
         data ->op_code = strtol(opcode, NULL, 0);
         
@@ -124,25 +128,24 @@ main(int argc, char *argv[])
         switch(data -> op_code) {
             /* Send result. */
             case CREATE:
-                create_new_entry(&data ->msg_body);
+                create_new_entry(&data ->msg_body, &head);
                 break;
             case UPDATE:
-                update_entry(&data ->msg_body);
+                update_entry(&data ->msg_body, &head);
                 break;
             case DELETE:
-                delete_entry(&data->msg_body);
+                delete_entry(&data->msg_body, &head);
                 break;
         }
 
-        //head = (table_entry_t *)buffer;
-        
         puts("Updated table is:");
-        printf("%s  %s  %s\n", head -> entry.destination, head -> entry.gateway_ip, head -> entry.oif);
+        table_entry_t* first_entry = head.next;
+        printf("%s  %s  %s\n",first_entry -> entry.destination, first_entry -> entry.gateway_ip, first_entry -> entry.oif);
         //struct _table_entry *next_node = head -> next;
-        while(head -> next)
+        while(first_entry -> next)
         {
             struct _table_entry *next_node = malloc(sizeof(struct _table_entry));
-            next_node = head -> next;
+            next_node = head.next;
             printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
             next_node = next_node -> next;
         }
