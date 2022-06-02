@@ -19,6 +19,9 @@ char buffer[BUFFER_SIZE];
  * Master skt FD is also a member of this array*/
 int monitored_fd_set[MAX_CLIENT_SUPPORTED];
 
+/* Keep track of number of connected client */
+int conn_clients = 0;
+
 /*Each connected client's intermediate result is 
  * maintained in this client array.*/
 //int client_result[MAX_CLIENT_SUPPORTED] = {0};
@@ -44,6 +47,7 @@ add_to_monitored_fd_set(int skt_fd){
         monitored_fd_set[i] = skt_fd;
         break;
     }
+    conn_clients++;
 }
 
 /*Remove the FD from monitored_fd_set array*/
@@ -59,6 +63,8 @@ remove_from_monitored_fd_set(int skt_fd){
         monitored_fd_set[i] = -1;
         break;
     }
+
+    conn_clients--;
 }
 
 /* Clone all the FDs in monitored_fd_set array into 
@@ -92,6 +98,20 @@ get_max_fd(){
     return max;
 }
 
+static void
+syncronize_r_table(char *buffer, int b_size)
+{
+    for(int i = 2; i < MAX_CLIENT_SUPPORTED || i > conn_clients; i++){
+        if(monitored_fd_set[i] != -1)
+        {
+            int ret = write(monitored_fd_set[i], buffer, b_size);
+            if (ret == -1) {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+}
 
 
 int
@@ -213,14 +233,14 @@ main(int argc, char *argv[])
             ret = read(0, buffer, BUFFER_SIZE);
             printf("Input read from console : %s\n", buffer);
         }
-        else /* Data srrives on some other client FD*/
+        else /* Data rrives on some other client FD*/
         {
             /*Find the client which has send us the data request*/
-            i = 0, comm_socket_fd = -1;
-            for(; i < MAX_CLIENT_SUPPORTED; i++){
+            //comm_socket_fd = -1;
+            for(i = 0; i < MAX_CLIENT_SUPPORTED; i++){
 
                 if(FD_ISSET(monitored_fd_set[i], &readfds)){
-                    comm_socket_fd = monitored_fd_set[i];
+                    //comm_socket_fd = monitored_fd_set[i];
 
                     /*Prepare the buffer to recv the data*/
                     memset(buffer, 0, BUFFER_SIZE);
@@ -229,13 +249,21 @@ main(int argc, char *argv[])
                     /*Server is blocked here. Waiting for the data to arrive from client
                      * 'read' is a blocking system call*/
                     printf("Waiting for data from the client\n");
-                    ret = read(comm_socket_fd, buffer, BUFFER_SIZE);
+                    ret = read(monitored_fd_set[i], buffer, BUFFER_SIZE);
 
                     if (ret == -1) {
                         perror("read");
                         exit(EXIT_FAILURE);
                     }
 
+                    if( buffer[0] == 0)
+                    {
+                        /* Close socket. */
+                        close(comm_socket_fd);
+                        //client_result[i] = 0; 
+                        remove_from_monitored_fd_set(comm_socket_fd);
+                        continue;
+                    }
                     /* Add received summand. */
                     memset(data, 0, sizeof(sync_msg_t));
                     char rest[BUFFER_SIZE];
@@ -274,18 +302,16 @@ main(int argc, char *argv[])
                         case DELETE:
                             delete_entry(&data->msg_body, &head);
                             break;
-
-                    
-                        /* Close socket. */
-                        // close(comm_socket_fd);
-                        // client_result[i] = 0; 
-                        // remove_from_monitored_fd_set(comm_socket_fd);
+                        
                     }
 
-                    send_updated_table(comm_socket_fd, buffer, BUFFER_SIZE);
-                    continue; /*go to select() and block*/
+                    //send_updated_table(comm_socket_fd, buffer, BUFFER_SIZE);
+                    
+                    //continue; /*go to select() and block*/
                 }
             }
+            syncronize_r_table(buffer, BUFFER_SIZE);
+
         }
     } /*go to select() and block*/
 

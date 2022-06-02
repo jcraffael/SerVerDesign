@@ -139,13 +139,12 @@ main(int argc, char *argv[])
         }
 
         puts("Updated table is:");
-        table_entry_t* first_entry = head.next;
-        printf("%s  %s  %s\n",first_entry -> entry.destination, first_entry -> entry.gateway_ip, first_entry -> entry.oif);
+        table_entry_t* next_node = head.next;
+        //printf("%s  %s  %s\n",first_entry -> entry.destination, first_entry -> entry.gateway_ip, first_entry -> entry.oif);
         //struct _table_entry *next_node = head -> next;
-        while(first_entry -> next)
+        while(next_node)
         {
-            struct _table_entry *next_node = malloc(sizeof(struct _table_entry));
-            next_node = head.next;
+            
             printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
             next_node = next_node -> next;
         }
