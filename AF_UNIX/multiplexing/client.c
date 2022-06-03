@@ -5,27 +5,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "../routing_table/table.h"
 
 #define SOCKET_NAME "/tmp/DemoSocket"
 #define BUFFER_SIZE 128
-
-// typedef struct _msg_body{
-
-//     char destination[20];
-//     //char mask;
-//     char gateway_ip[16];
-//     char oif[32];
-
-// }msg_body_t;
-
-// typedef struct _table_entry{
-
-//     msg_body_t entry;
-//     struct _table_entry *next;
-
-// }table_entry_t;
-
 
 int
 main(int argc, char *argv[])
@@ -40,7 +24,7 @@ main(int argc, char *argv[])
     int ret;
     int data_socket;
     char buffer[BUFFER_SIZE];
-    sync_msg_t *data = malloc(sizeof(sync_msg_t));
+    
 
     /* Create data socket. */
 
@@ -97,46 +81,8 @@ main(int argc, char *argv[])
             exit(EXIT_FAILURE);
          }
 
-        memset(data, 0, sizeof(sync_msg_t));
-        int msg_integrity = 0;
-        //char rest[BUFFER_SIZE];
-        //memcpy(rest, buffer, BUFFER_SIZE);
-        char *rest = buffer;
-        char *opcode = strtok_r(rest, ",", &rest);
-        char *token = strtok_r(rest, ",", &rest);
-        data ->op_code = strtol(opcode, NULL, 0);
-        
-        char *tk = strtok_r(token, ";", &rest);
-        if(fill_entry(&data->msg_body.destination, tk))
-        {
-            
-            tk = strtok_r(rest, ";", &rest);
-            if(fill_entry(&data->msg_body.gateway_ip, tk))
-            {
-                tk = strtok_r(rest, ";", &rest);
-                if(fill_entry(&data->msg_body.oif, tk))
-                    msg_integrity = 1;
-            }
-        }
-        
-        
-        if(msg_integrity == 0)
-        {
-            puts("msg body corrupted.");
+        if(update_routing_table(&head, buffer, sizeof(buffer)) == 0)
             continue;
-        }
-        switch(data -> op_code) {
-            /* Send result. */
-            case CREATE:
-                create_new_entry(&data ->msg_body, &head);
-                break;
-            case UPDATE:
-                update_entry(&data ->msg_body, &head);
-                break;
-            case DELETE:
-                delete_entry(&data->msg_body, &head);
-                break;
-        }
 
         puts("Updated table is:");
         table_entry_t* next_node = head.next;
@@ -144,7 +90,6 @@ main(int argc, char *argv[])
         //struct _table_entry *next_node = head -> next;
         while(next_node)
         {
-            
             printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
             next_node = next_node -> next;
         }

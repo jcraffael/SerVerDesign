@@ -50,5 +50,7 @@ send_updated_table(int comm_socket_fd, char *buffer, int b_size);
 int
 fill_entry(char *str1, char *str2);
 
+int
+update_routing_table(table_entry_t *head, char *buffer, int b_size);
 
 #endif

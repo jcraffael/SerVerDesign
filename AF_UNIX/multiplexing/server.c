@@ -101,7 +101,7 @@ get_max_fd(){
 static void
 syncronize_r_table(char *buffer, int b_size)
 {
-    for(int i = 2; i < MAX_CLIENT_SUPPORTED || i > conn_clients; i++){
+    for(int i = 2; i < MAX_CLIENT_SUPPORTED || i <= conn_clients; i++){
         if(monitored_fd_set[i] != -1)
         {
             int ret = write(monitored_fd_set[i], buffer, b_size);
@@ -264,53 +264,18 @@ main(int argc, char *argv[])
                         remove_from_monitored_fd_set(comm_socket_fd);
                         continue;
                     }
-                    /* Add received summand. */
-                    memset(data, 0, sizeof(sync_msg_t));
-                    char rest[BUFFER_SIZE];
-                    memcpy(rest, buffer, BUFFER_SIZE);
-                    char *opcode = strtok_r(rest, ",", &rest);
-                    char *token = strtok_r(rest, ",", &rest);
-                    data ->op_code = strtol(opcode, NULL, 0);
-                    
-                    char *tk = strtok_r(token, ";", &rest);
-                    if(fill_entry(&data->msg_body.destination, tk))
-                    {
-                        
-                        tk = strtok_r(rest, ";", &rest);
-                        if(fill_entry(&data->msg_body.gateway_ip, tk))
-                        {
-                            tk = strtok_r(rest, ";", &rest);
-                            if(fill_entry(&data->msg_body.oif, tk))
-                                msg_integrity = 1;
-                        }
-                    }
-                    
-                    
-                    if(msg_integrity == 0)
-                    {
-                        puts("msg body corrupted.");
-                        continue;
-                    }
-                    switch(data -> op_code) {
-                        /* Send result. */
-                        case CREATE:
-                            create_new_entry(&data ->msg_body, &head);
-                            break;
-                        case UPDATE:
-                            update_entry(&data ->msg_body, &head);
-                            break;
-                        case DELETE:
-                            delete_entry(&data->msg_body, &head);
-                            break;
-                        
-                    }
 
-                    //send_updated_table(comm_socket_fd, buffer, BUFFER_SIZE);
+                    /* Add received summand. */
+                    if(update_routing_table(&head, buffer, sizeof(buffer)) == 0)
+                        continue;
+                    
+                    table_entry_t *next = head.next;
                     
                     //continue; /*go to select() and block*/
                 }
             }
             syncronize_r_table(buffer, BUFFER_SIZE);
+            continue;
 
         }
     } /*go to select() and block*/

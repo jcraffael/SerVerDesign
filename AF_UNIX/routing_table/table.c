@@ -66,7 +66,7 @@ delete_entry(msg_body_t *msg, table_entry_t *head){
         return 0;
     else
     {
-        table_entry_t *n_entry = head -> next;
+        table_entry_t *n_entry = head;
         while(n_entry -> next != t_entry)
         {n_entry = n_entry -> next;}
 
@@ -100,4 +100,51 @@ fill_entry(char *str1, char *str2)
         return 1;
     }
     return 0;
+}
+
+int
+update_routing_table(table_entry_t *head, char *buffer, int b_size)
+{
+    sync_msg_t *data = malloc(sizeof(sync_msg_t));
+    memset(data, 0, sizeof(sync_msg_t));
+    int msg_integrity = 0;
+    char rest[b_size], *ptr = rest;
+    memcpy(rest, buffer, b_size);
+    char *opcode = strtok_r(rest, ",", &ptr);
+    char *token = strtok_r(ptr, ",", &ptr);
+    data ->op_code = strtol(opcode, NULL, 0);
+    
+    char *tk = strtok_r(token, ";", &ptr);
+    if(fill_entry(&data->msg_body.destination, tk))
+    {
+        
+        tk = strtok_r(ptr, ";", &ptr);
+        if(fill_entry(&data->msg_body.gateway_ip, tk))
+        {
+            tk = strtok_r(ptr, ";", &ptr);
+            if(fill_entry(&data->msg_body.oif, tk))
+                msg_integrity = 1;
+        }
+    }
+    
+    
+    if(msg_integrity == 0)
+    {
+        puts("msg body corrupted.");
+        return 0;
+    }
+    switch(data -> op_code) {
+        /* Send result. */
+        case CREATE:
+            create_new_entry(&data ->msg_body, head);
+            break;
+        case UPDATE:
+            update_entry(&data ->msg_body, head);
+            break;
+        case DELETE:
+            delete_entry(&data->msg_body, head);
+            break;
+    }
+    free(data);
+    return 1;
 }
