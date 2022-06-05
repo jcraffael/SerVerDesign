@@ -11,6 +11,78 @@
 #define SOCKET_NAME "/tmp/DemoSocket"
 #define BUFFER_SIZE 128
 
+
+struct arg_struct {
+    char *buffer;
+    table_entry_t *head;
+    int data_socket;
+    int ret;
+};
+
+
+static void *
+thread_fn_callback(void *arg) {
+
+    struct arg_struct *args = (struct arg_struct *)arg;
+    char *buffer = args -> buffer;
+    table_entry_t *head = args -> head;
+    int data_socket = args -> data_socket;
+    int ret = args -> ret;
+	 while(1)
+    {
+          /* Receive result. */
+        memset(buffer, 0, BUFFER_SIZE);
+        
+        ret = read(data_socket, buffer, BUFFER_SIZE);
+        //ret = read(data_socket, &head, BUFFER_SIZE);
+        if (ret == -1) {
+            perror("read");
+            exit(EXIT_FAILURE);
+         }
+
+        if(update_routing_table(head, buffer, sizeof(buffer)) == 0)
+            continue;
+
+        puts("Updated table is:");
+        table_entry_t* next_node = head -> next;
+        
+        while(next_node)
+        {
+            printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
+            next_node = next_node -> next;
+        }
+    }
+}
+
+
+void
+routingtb_syn_thread(char *buffer, int ret, table_entry_t *head, int data_socket) {
+
+
+	pthread_t pthread1;
+
+   
+	/* Take some argument to be passed to the thread fn,
+ 	 * Look after that you always paas the persistent memory
+ 	 * as an argument to the thread, do not pass caller's 
+ 	 * local variables Or stack Memory*/	
+	struct arg_struct sock_args = {buffer, head, data_socket, ret};
+
+
+	/* Return 0 on success, otherwise returns errorcode, all
+ 	 * pthread functions return -ve error code on failure, they
+ 	 * do not set global 'errno' variable */
+	int rc = pthread_create(&pthread1, 
+				   NULL, 
+				   thread_fn_callback,
+				   (void *)&sock_args);
+	if(rc != 0) {
+
+		printf("Error occurred, thread could not be created, errno = %d\n", rc);
+		exit(0);
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -56,6 +128,8 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
+    routingtb_syn_thread();
+
     /* Send arguments. */
     while(1){
         memset(buffer, 0, BUFFER_SIZE);
@@ -86,8 +160,7 @@ main(int argc, char *argv[])
 
         puts("Updated table is:");
         table_entry_t* next_node = head.next;
-        //printf("%s  %s  %s\n",first_entry -> entry.destination, first_entry -> entry.gateway_ip, first_entry -> entry.oif);
-        //struct _table_entry *next_node = head -> next;
+        
         while(next_node)
         {
             printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
