@@ -233,7 +233,7 @@ main(int argc, char *argv[])
             ret = read(0, buffer, BUFFER_SIZE);
             printf("Input read from console : %s\n", buffer);
         }
-        else /* Data rrives on some other client FD*/
+        else /* Data arrives on some other client FD*/
         {
             /*Find the client which has send us the data request*/
             //comm_socket_fd = -1;
