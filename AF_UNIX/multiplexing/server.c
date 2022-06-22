@@ -5,7 +5,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include "../routing_table/table.h"
-
+#include "../update_table/upd_table.h"
 #define SOCKET_NAME "/tmp/DemoSocket"
 
 
@@ -113,11 +113,38 @@ syncronize_r_table(char *buffer, int b_size)
     }
 }
 
+static void
+brdcast_r_table(rout_entry_t *head, int data_socket)
+{
+    rout_entry_t *one_entry = head -> next;
+    if(one_entry == NULL) return;
+
+    //sync_msg_t create_entry = {1, one_entry -> entry};
+    rout_body_t msg = one_entry -> entry;
+    memset(buffer, 0, sizeof(buffer));
+    char *ptr = buffer;
+    strcpy(ptr, "1,");
+    strcat(ptr, msg.destination);
+    strcat(ptr, ";");
+    strcat(ptr, msg.gateway_ip);
+    strcat(ptr, ";");
+    strcat(ptr, msg.oif);
+
+    //memcpy(buffer, &create_entry, sizeof(sync_msg_t));
+
+    int ret = write(data_socket, buffer, sizeof(buffer));
+            if (ret == -1) {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+    brdcast_r_table(one_entry, data_socket);
+}
+
 
 int
 main(int argc, char *argv[])
 {
-    table_entry_t head;
+    rout_entry_t head;
     memset(head.entry.destination, 0, sizeof(head.entry.destination));
     memset(head.entry.gateway_ip, 0, sizeof(head.entry.gateway_ip));
     memset(head.entry.oif, 0, sizeof(head.entry.oif));
@@ -227,6 +254,9 @@ main(int argc, char *argv[])
             printf("Connection accepted from client\n");
 
             add_to_monitored_fd_set(data_socket);
+
+            if(head.next != NULL) 
+                brdcast_r_table(&head, data_socket);
         }
         else if(FD_ISSET(0, &readfds)){
             memset(buffer, 0, BUFFER_SIZE);
@@ -269,7 +299,7 @@ main(int argc, char *argv[])
                     if(update_routing_table(&head, buffer, sizeof(buffer)) == 0)
                         continue;
                     
-                    table_entry_t *next = head.next;
+                    rout_entry_t *next = head.next;
                     
                     //continue; /*go to select() and block*/
                 }

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "../routing_table/table.h"
+#include "../update_table/upd_table.h"
 
 #define SOCKET_NAME "/tmp/DemoSocket"
 #define BUFFER_SIZE 128
@@ -19,7 +20,7 @@ pthread_t pthread2;
 struct arg_struct {
     //char *buffer;
     int data_socket;
-    table_entry_t *head;
+    rout_entry_t *head;
     
 };
 
@@ -29,7 +30,7 @@ tbsync_fn_callback(void *arg) {
 
     puts("Sync thread fn.");
     struct arg_struct *args = (struct arg_struct *)arg;
-    table_entry_t *head = args -> head;
+    rout_entry_t *head = args -> head;
     int data_socket = args -> data_socket;
     printf("Data socket of syncing th handle is %d\n", data_socket);
     char buffer[BUFFER_SIZE];
@@ -52,7 +53,7 @@ tbsync_fn_callback(void *arg) {
             continue;
 
         puts("Updated table is:");
-        table_entry_t* next_node = head -> next;
+        rout_entry_t* next_node = head -> next;
         
         while(next_node)
         {
@@ -102,7 +103,7 @@ routingtb_syn_thread(/*int data_socket*/) {
 	// pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED /*PTHREAD_CREATE_JOINABLE*/);
 
     char buffer[BUFFER_SIZE];
-    table_entry_t head;
+    rout_entry_t head;
     memset(head.entry.destination, 0, sizeof(head.entry.destination));
     memset(head.entry.gateway_ip, 0, sizeof(head.entry.gateway_ip));
     memset(head.entry.oif, 0, sizeof(head.entry.oif));
@@ -142,6 +143,14 @@ routingtb_syn_thread(/*int data_socket*/) {
         fprintf(stderr, "The server is down.\n");
         exit(EXIT_FAILURE);
     }
+
+    /* Receive the routing table from server */
+    // memset(buffer, 0, sizeof(buffer));
+    // ret = read(data_socket, buffer, BUFFER_SIZE);
+    // if (ret == -1) {
+    //     fprintf(stderr, "Failed to receive routing table from server.\n");
+    //     exit(EXIT_FAILURE);
+    // }
 
 	/* Take some argument to be passed to the thread fn,
  	 * Look after that you always paas the persistent memory
@@ -221,7 +230,7 @@ tb_send_thread(/*int data_socket*/) {
  	 * as an argument to the thread, do not pass caller's 
  	 * local variables Or stack Memory*/	
 
-    table_entry_t *nul_ptr = NULL;
+    rout_entry_t *nul_ptr = NULL;
 	struct arg_struct sock_args = {data_socket, nul_ptr};
     struct arg_struct *_sock_args = malloc(sizeof(struct arg_struct));
 
@@ -252,7 +261,7 @@ main(int argc, char *argv[])
 {
     
     tb_send_thread();
-    sleep(5);
+    sleep(2);
     routingtb_syn_thread();
 
     pthread_join(pthread1, NULL);
