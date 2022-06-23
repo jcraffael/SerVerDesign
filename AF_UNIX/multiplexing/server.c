@@ -99,7 +99,7 @@ get_max_fd(){
 }
 
 static void
-syncronize_r_table(char *buffer, int b_size)
+syncronize_nw_table(char *buffer, int b_size)
 {
     for(int i = 2; i < MAX_CLIENT_SUPPORTED || i <= conn_clients; i++){
         if(monitored_fd_set[i] != -1)
@@ -113,42 +113,75 @@ syncronize_r_table(char *buffer, int b_size)
     }
 }
 
-static void
-brdcast_r_table(rout_entry_t *head, int data_socket)
+void
+compose_rout_sync_msg(rout_body_t *msg)
 {
-    rout_entry_t *one_entry = head -> next;
-    if(one_entry == NULL) return;
-
-    //sync_msg_t create_entry = {1, one_entry -> entry};
-    rout_body_t msg = one_entry -> entry;
     memset(buffer, 0, sizeof(buffer));
     char *ptr = buffer;
-    strcpy(ptr, "1,");
-    strcat(ptr, msg.destination);
+    strcpy(ptr, "21,");
+    strcat(ptr, msg -> destination);
     strcat(ptr, ";");
-    strcat(ptr, msg.gateway_ip);
+    strcat(ptr, msg -> gateway_ip);
     strcat(ptr, ";");
-    strcat(ptr, msg.oif);
+    strcat(ptr, msg -> oif);
+}
 
-    //memcpy(buffer, &create_entry, sizeof(sync_msg_t));
+void
+compose_mac_sync_msg(mac_body_t *msg)
+{
+    memset(buffer, 0, sizeof(buffer));
+    char *ptr = buffer;
+    strcpy(ptr, "11,");
+    strcat(ptr, msg -> mac);
+    
+}
+
+
+static void
+brdcast_rout_table(rout_entry_t *rout_head, int data_socket)
+{
+    rout_entry_t *one_entry = rout_head -> next;
+    if(one_entry == NULL) return;
+
+    rout_body_t msg = one_entry -> entry;
+    compose_rout_sync_msg(&msg);
 
     int ret = write(data_socket, buffer, sizeof(buffer));
             if (ret == -1) {
                 perror("write");
                 exit(EXIT_FAILURE);
             }
-    brdcast_r_table(one_entry, data_socket);
+    brdcast_rout_table(one_entry, data_socket);
 }
 
+static void
+brdcast_mac_table(mac_entry_t *mac_head, int data_socket)
+{
+    mac_entry_t *one_entry = mac_head -> next;
+    if(one_entry == NULL) return;
 
+    mac_body_t msg = one_entry -> entry;
+    compose_mac_sync_msg(&msg);
+
+    int ret = write(data_socket, buffer, sizeof(buffer));
+            if (ret == -1) {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+    brdcast_mac_table(one_entry, data_socket);
+}
 int
 main(int argc, char *argv[])
 {
-    rout_entry_t head;
-    memset(head.entry.destination, 0, sizeof(head.entry.destination));
-    memset(head.entry.gateway_ip, 0, sizeof(head.entry.gateway_ip));
-    memset(head.entry.oif, 0, sizeof(head.entry.oif));
-    head.next = NULL;
+    rout_entry_t rout_head;
+    memset(rout_head.entry.destination, 0, sizeof(rout_head.entry.destination));
+    memset(rout_head.entry.gateway_ip, 0, sizeof(rout_head.entry.gateway_ip));
+    memset(rout_head.entry.oif, 0, sizeof(rout_head.entry.oif));
+    rout_head.next = NULL;
+
+    mac_entry_t mac_head;
+    memset(mac_head.entry.mac, 0, sizeof(mac_head.entry.mac));
+    mac_head.next = NULL;
     struct sockaddr_un name;
     
 #if 0  
@@ -162,7 +195,7 @@ main(int argc, char *argv[])
     int connection_socket;
     int data_socket;
     int msg_integrity = 0;
-    sync_msg_t *data = malloc(sizeof(sync_msg_t));
+    //sync_msg_t *data = malloc(sizeof(sync_msg_t));
     
     fd_set readfds;
     int comm_socket_fd, i;
@@ -255,13 +288,28 @@ main(int argc, char *argv[])
 
             add_to_monitored_fd_set(data_socket);
 
-            if(head.next != NULL) 
-                brdcast_r_table(&head, data_socket);
+            if(rout_head.next != NULL) 
+            {
+                brdcast_rout_table(&rout_head, data_socket);
+                
+            }
+            if(mac_head.next != NULL) 
+            {
+                
+                brdcast_mac_table(&mac_head, data_socket);
+            }
+
         }
         else if(FD_ISSET(0, &readfds)){
             memset(buffer, 0, BUFFER_SIZE);
-            ret = read(0, buffer, BUFFER_SIZE);
+            *buffer = '1';
+            ret = read(0, buffer + 1, BUFFER_SIZE - 1);
             printf("Input read from console : %s\n", buffer);
+
+            if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
+                continue;
+            syncronize_nw_table(buffer, BUFFER_SIZE);
+
         }
         else /* Data arrives on some other client FD*/
         {
@@ -285,7 +333,7 @@ main(int argc, char *argv[])
                         perror("read");
                         exit(EXIT_FAILURE);
                     }
-
+                    
                     if( buffer[0] == 0)
                     {
                         /* Close socket. */
@@ -296,15 +344,25 @@ main(int argc, char *argv[])
                     }
 
                     /* Add received summand. */
-                    if(update_routing_table(&head, buffer, sizeof(buffer)) == 0)
-                        continue;
+                    if(buffer[0] - '0' == L3)
+                    {
+                        if(update_rout_table(&rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
+                            continue;
+                    }
+                    else if(buffer[0] - '0' == L2)
+                    {
+                        if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
+                            continue;
+                    }
+                    else
+                    ;
                     
-                    rout_entry_t *next = head.next;
+
                     
-                    //continue; /*go to select() and block*/
+                    /*go to select() and block*/
                 }
             }
-            syncronize_r_table(buffer, BUFFER_SIZE);
+            syncronize_nw_table(buffer, BUFFER_SIZE);
             continue;
 
         }

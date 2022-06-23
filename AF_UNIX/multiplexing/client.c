@@ -20,7 +20,7 @@ pthread_t pthread2;
 struct arg_struct {
     //char *buffer;
     int data_socket;
-    rout_entry_t *head;
+    table_entry_t *table_head;
     
 };
 
@@ -30,9 +30,9 @@ tbsync_fn_callback(void *arg) {
 
     puts("Sync thread fn.");
     struct arg_struct *args = (struct arg_struct *)arg;
-    rout_entry_t *head = args -> head;
+    
     int data_socket = args -> data_socket;
-    printf("Data socket of syncing th handle is %d\n", data_socket);
+    
     char buffer[BUFFER_SIZE];
 	 while(1)
     {
@@ -41,25 +41,51 @@ tbsync_fn_callback(void *arg) {
         
         //pthread_mutex_lock(&lock);
         int ret = read(data_socket, buffer, BUFFER_SIZE);
-        //ret = read(data_socket, &head, BUFFER_SIZE);
+        
         if (ret == -1) {
             perror("read");
             exit(EXIT_FAILURE);
          }
-        
-        //pthread_mutex_unlock(&lock);
+        //printf("The received buffer is %s\n", buffer);
 
-        if(update_routing_table(head, buffer, sizeof(buffer)) == 0)
+        if(buffer[0] - '0' == L3)
+        {
+            rout_entry_t *rout_head = &(args -> table_head -> rout_table_entry);
+            if(update_rout_table(rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
             continue;
 
-        puts("Updated table is:");
-        rout_entry_t* next_node = head -> next;
-        
-        while(next_node)
-        {
-            printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
-            next_node = next_node -> next;
+            puts("Updated rout table is:");
+            rout_entry_t* next_node = rout_head -> next;
+            
+            while(next_node)
+            {
+                printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
+                next_node = next_node -> next;
+            }
         }
+        else if(buffer[0] - '0' == L2)
+        {
+            mac_entry_t *mac_head = &(args -> table_head -> mac_table_entry);
+            if(update_mac_table(mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
+                 continue;
+
+            puts("Updated mac table is:");
+            mac_entry_t* next_node = mac_head -> next;
+            
+            while(next_node)
+            {
+                printf("%s \n", next_node -> entry.mac);
+                next_node = next_node -> next;
+            }
+        }
+        else
+        {
+            puts("Unknown msg, close the connection.");
+            continue;
+        }
+            
+
+        
     }
 }
 
@@ -76,9 +102,10 @@ send_fn_callback(void *arg)
     while(1){
         memset(buffer, 0, BUFFER_SIZE);
 
+        *buffer = '2';
         printf("Enter routing msg to send to server :\n");
-        scanf("%s", buffer);
-        //pthread_mutex_lock(&lock);
+        scanf("%s", buffer + 1);
+        
 
         int ret = write(data_socket, buffer, sizeof(buffer));
         if (ret == -1) {
@@ -103,12 +130,16 @@ routingtb_syn_thread(/*int data_socket*/) {
 	// pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED /*PTHREAD_CREATE_JOINABLE*/);
 
     char buffer[BUFFER_SIZE];
-    rout_entry_t head;
-    memset(head.entry.destination, 0, sizeof(head.entry.destination));
-    memset(head.entry.gateway_ip, 0, sizeof(head.entry.gateway_ip));
-    memset(head.entry.oif, 0, sizeof(head.entry.oif));
-    head.next = NULL;
+    rout_entry_t rout_head;
+    memset(rout_head.entry.destination, 0, sizeof(rout_head.entry.destination));
+    memset(rout_head.entry.gateway_ip, 0, sizeof(rout_head.entry.gateway_ip));
+    memset(rout_head.entry.oif, 0, sizeof(rout_head.entry.oif));
+    rout_head.next = NULL;
     
+    mac_entry_t mac_head;
+    memset(mac_head.entry.mac, 0, sizeof(mac_head.entry.mac));
+    mac_head.next = NULL;
+
     struct sockaddr_un addr;
     int ret;
 
@@ -144,19 +175,14 @@ routingtb_syn_thread(/*int data_socket*/) {
         exit(EXIT_FAILURE);
     }
 
-    /* Receive the routing table from server */
-    // memset(buffer, 0, sizeof(buffer));
-    // ret = read(data_socket, buffer, BUFFER_SIZE);
-    // if (ret == -1) {
-    //     fprintf(stderr, "Failed to receive routing table from server.\n");
-    //     exit(EXIT_FAILURE);
-    // }
-
 	/* Take some argument to be passed to the thread fn,
  	 * Look after that you always paas the persistent memory
  	 * as an argument to the thread, do not pass caller's 
  	 * local variables Or stack Memory*/	
-	struct arg_struct sock_args = {data_socket, &head};
+    table_entry_t table_head;
+    table_head.mac_table_entry = mac_head;
+    table_head.rout_table_entry = rout_head;
+	struct arg_struct sock_args = {data_socket, &table_head};
 
     struct arg_struct *_sock_args = malloc(sizeof(struct arg_struct));
     _sock_args = &sock_args;
@@ -230,7 +256,7 @@ tb_send_thread(/*int data_socket*/) {
  	 * as an argument to the thread, do not pass caller's 
  	 * local variables Or stack Memory*/	
 
-    rout_entry_t *nul_ptr = NULL;
+    table_entry_t *nul_ptr = NULL;
 	struct arg_struct sock_args = {data_socket, nul_ptr};
     struct arg_struct *_sock_args = malloc(sizeof(struct arg_struct));
 

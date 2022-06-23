@@ -16,6 +16,12 @@ typedef struct _mac_body{
     char mac[20];
 }mac_body_t;
 
+// typedef union{
+
+//     rout_body_t rout_body;
+//     mac_body_t mac_body;
+// }msg_body_t;
+
 typedef struct _rout_entry{
 
     rout_body_t entry;
