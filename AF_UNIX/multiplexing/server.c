@@ -114,25 +114,25 @@ syncronize_nw_table(char *buffer, int b_size)
     }
 }
 
-void
-compose_rout_sync_msg(rout_body_t *msg)
-{
-    memset(buffer, 0, sizeof(buffer));
-    char *ptr = buffer;
-    strcpy(ptr, "21,");
+// void
+// compose_rout_sync_msg(rout_body_t *msg)
+// {
+//     memset(buffer, 0, sizeof(buffer));
+//     char *ptr = buffer;
+//     strcpy(ptr, "21,");
 
-    memcpy(ptr + 3, msg, sizeof(rout_body_t));
-}
+//     memcpy(ptr + 3, msg, sizeof(rout_body_t));
+// }
 
-void
-compose_mac_sync_msg(mac_body_t *msg)
-{
-    memset(buffer, 0, sizeof(buffer));
-    char *ptr = buffer;
-    strcpy(ptr, "11,");
-    strcat(ptr, msg -> mac);
+// void
+// compose_mac_sync_msg(mac_body_t *msg)
+// {
+//     memset(buffer, 0, sizeof(buffer));
+//     char *ptr = buffer;
+//     strcpy(ptr, "11,");
+//     strcat(ptr, msg -> mac);
     
-}
+// }
 
 
 static void
@@ -168,19 +168,71 @@ brdcast_mac_table(mac_entry_t *mac_head, int data_socket)
             }
     brdcast_mac_table(one_entry, data_socket);
 }
+
+
+static int
+mac_entry_insert(char *buffer, mac_entry_t *mac_head)
+{
+    mac_body_t mac_entry;
+    
+    char ip_addr[IP_SIZE];
+                        
+    memset(ip_addr, 0, IP_SIZE);
+    memset(mac_entry.mac, 0, MAC_SIZE);
+            
+    int op_code;
+    do
+    {
+        memset(buffer, 0, BUFFER_SIZE);
+        read(0, buffer, BUFFER_SIZE);
+    } while (!(op_code = check_mac_msg(buffer, mac_entry.mac, ip_addr, BUFFER_SIZE)));
+           
+            
+    printf("Mac is %s and Ip is %s\n", mac_entry.mac, ip_addr);
+
+    create_and_write_shared_memory(mac_entry.mac, ip_addr, IP_SIZE);
+    memset(buffer, 0, BUFFER_SIZE);
+    *buffer = '1';
+    *(buffer + 1) = op_code + '0';
+    *(buffer + 2) = ',';
+            
+    memcpy(buffer + 3, &mac_entry, sizeof(mac_body_t));
+    if(update_mac_table(mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
+        return 0;
+            
+    syncronize_nw_table(buffer, BUFFER_SIZE); 
+        return 1;
+}           
+
+static void 
+send_show_request(char *buffer)
+{
+    *buffer = '3';
+    syncronize_nw_table(buffer, BUFFER_SIZE); 
+}
+
+static void
+flush_all(char *buffer)
+{
+    *buffer = '4';
+    syncronize_nw_table(buffer, BUFFER_SIZE); 
+}
+
 int
 main(int argc, char *argv[])
 {
     rout_entry_t rout_head;
-    // memset(rout_head.entry.destination, 0, sizeof(rout_head.entry.destination));
-    // memset(rout_head.entry.gateway_ip, 0, sizeof(rout_head.entry.gateway_ip));
-    // memset(rout_head.entry.oif, 0, sizeof(rout_head.entry.oif));
     rout_body_clean(rout_head.entry);
     rout_head.next = NULL;
 
     mac_entry_t mac_head;
     memset(mac_head.entry.mac, 0, sizeof(mac_head.entry.mac));
     mac_head.next = NULL;
+
+    pid_entry_t pid_head;
+    pid_head.pid = 0;
+    pid_head.next = NULL;
+
     struct sockaddr_un name;
     
 #if 0  
@@ -263,8 +315,8 @@ main(int argc, char *argv[])
 
         refresh_fd_set(&readfds); /*Copy the entire monitored FDs to readfds*/
         /* Wait for incoming connection. */
-        printf("Waiting on select() sys call\n");
-
+        printf("Waiting on select() sys call\nOr press enter to select\n");
+        
         /* Call the select system call, server process blocks here. 
          * Linux OS keeps this process blocked untill the connection initiation request Or 
          * data requests arrives on any of the file Drscriptors in the 'readfds' set*/
@@ -300,36 +352,23 @@ main(int argc, char *argv[])
 
         }
         else if(FD_ISSET(0, &readfds)){
+            int choice = 0;
+            printf("- Type 1 to insert MAC and IP;\n- Type 2 to ask clients to show tables;\n- Type 3 to flush all tables;\n");
+            scanf("%d", &choice);
 
-            mac_body_t mac_entry;
-            char ip_addr[IP_SIZE];
+            switch(choice)
+            {
+                case 1:
+                    if(mac_entry_insert(buffer, &mac_head) == 0)
+                        continue;
+                case 2:
+                    send_show_request();
+                    break;
+                case 3:
+                    flush_all();
+                    break;
+            }
             
-            
-            memset(ip_addr, 0, IP_SIZE);
-            memset(mac_entry.mac, 0, MAC_SIZE);
-            //puts("Type MAC address here:");
-            
-            int op_code;
-           do
-           {
-                memset(buffer, 0, BUFFER_SIZE);
-                ret = read(0, buffer, BUFFER_SIZE);
-           } while (!(op_code = check_mac_msg(buffer, mac_entry.mac, ip_addr, BUFFER_SIZE)));
-           
-            
-            printf("Mac is %s and Ip is %s\n", mac_entry.mac, ip_addr);
-
-            create_and_write_shared_memory(mac_entry.mac, ip_addr, IP_SIZE);
-            memset(buffer, 0, BUFFER_SIZE);
-            *buffer = '1';
-            *(buffer + 1) = op_code + '0';
-            *(buffer + 2) = ',';
-            
-            memcpy(buffer + 3, &mac_entry, sizeof(mac_body_t));
-            if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
-                continue;
-            
-            syncronize_nw_table(buffer, BUFFER_SIZE);
 
         }
         else /* Data arrives on some other client FD*/
@@ -352,7 +391,10 @@ main(int argc, char *argv[])
 
                     if (ret == -1) {
                         perror("read");
-                        exit(EXIT_FAILURE);
+                        //exit(EXIT_FAILURE);
+                        close(comm_socket_fd);
+                        remove_from_monitored_fd_set(comm_socket_fd);
+                        continue;
                     }
                     
                     if( buffer[0] == 0)
@@ -365,23 +407,25 @@ main(int argc, char *argv[])
                     }
 
                     /* Add received summand. */
-                    if(buffer[0] - '0' == L3)
+                    if(buffer[0] - '0' == L3 && strlen(buffer) > sizeof(int))
                     {
                         if(update_rout_table(&rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
                             continue;
                     }
-                    else if(buffer[0] - '0' == L2)
+                    else if(buffer[0] - '0' == L2 && strlen(buffer) > sizeof(int))
                     {
                         if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
                             continue;
                     }
-                    else
-                    ;
+                    else if(strlen(buffer) == sizeof(int))
+                    {
+                        create_pid_entry(&pid_head, buffer);
+                    }
 
                     /*go to select() and block*/
                 }
             }
-            //if(buffer[0] != '')
+            
             syncronize_nw_table(buffer, BUFFER_SIZE);
             continue;
 

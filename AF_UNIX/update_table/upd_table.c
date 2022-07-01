@@ -237,3 +237,31 @@ update_mac_table(mac_entry_t *head, char *buffer, int b_size)
     free(mac);
     return 1;
 }
+
+void
+create_pid_entry(pid_entry_t *head, char *buffer)
+{
+    int pid = (int)buffer;
+    printf("The received pid is %d\n", pid);
+    
+    pid_entry_t *t_entry = head;
+    while(t_entry -> next != NULL)
+        t_entry = t_entry -> next;
+    pid_entry_t *new_entry = malloc(sizeof(pid_entry_t));
+    new_entry -> pid = pid;
+    new_entry -> next = NULL;
+    t_entry -> next = new_entry;
+
+}
+
+void
+flush_pid_entry(pid_entry_t *head)
+{
+    //pid_entry_t *t_entry = head;
+    while(head -> next != NULL)
+    {
+        pid_entry_t *t_entry = head -> next;
+        head -> next = t_entry -> next;
+        free(t_entry);
+    }
+}

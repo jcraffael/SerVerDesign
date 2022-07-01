@@ -42,7 +42,10 @@ tbsync_fn_callback(void *arg) {
         mac_head -> next = NULL;
     
     char buffer[BUFFER_SIZE];
-	 while(1)
+
+    int pid = getpid();
+    int sent_pid = 0;
+	while(1)
     {
           /* Receive result. */
         memset(buffer, 0, BUFFER_SIZE);
@@ -64,6 +67,13 @@ tbsync_fn_callback(void *arg) {
             if(update_rout_table(rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
                 continue;
 
+            if(sent_pid == 0)
+            {
+                memset(buffer, 0, BUFFER_SIZE);
+                memcpy(buffer, pid, sizeof(int));
+                write(data_socket, buffer, sizeof(buffer));
+                sent_pid = 1;
+            }
             puts("Updated rout table is:");
             rout_entry_t* next_node = rout_head -> next;
             
@@ -88,6 +98,10 @@ tbsync_fn_callback(void *arg) {
                 printf("%s\n", next_node -> entry.mac);
                 next_node = next_node -> next;
             }
+        }
+        else if(buffer[0] - '0' == 4)
+        {
+            ;
         }
         else
         {

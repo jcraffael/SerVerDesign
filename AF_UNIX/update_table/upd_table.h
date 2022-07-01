@@ -14,29 +14,6 @@ typedef enum{
     L3
 }LAYER;
 
-//typedef int(* MacTableFunc)(mac_entry_t *head, char *buffer);
-//typedef int(* RoutTableFunc)(rout_entry_t *head, char *buffer);
-
-// typedef struct _l2_struct{
-
-//     mac_body_t mac_body;
-//     MacTableFunc *update_mac_table;
-// }l2_struct_t;
-
-// typedef struct _l3_struct{
-
-//     rout_body_t rout_body;
-//     RoutTableFunc *update_rout_table;
-// }l3_struct_t;
-
-// typedef union{
-
-//     l2_struct_t l2_struct;
-//     l3_struct_t l3_struct;
-// }nw_struct_t;
-
-
-
 
 
 // rout_entry_t *

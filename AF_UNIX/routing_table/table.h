@@ -48,5 +48,10 @@ typedef union {
     mac_entry_t mac_table_entry;
 }table_entry_t;
 
+typedef struct _pid_entry{
+
+    int pid;
+    struct _pid_entry *next;
+}pid_entry_t;
 
 #endif
