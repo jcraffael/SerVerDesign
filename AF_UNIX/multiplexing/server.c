@@ -4,15 +4,16 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include "../routing_table/table.h"
+//include "../routing_table/table.h"
 #include "../update_table/upd_table.h"
+#include "../shm/shm.h"
 #define SOCKET_NAME "/tmp/DemoSocket"
 
 
 #define MAX_CLIENT_SUPPORTED    32
-#define BUFFER_SIZE 128
-char buffer[BUFFER_SIZE];
 
+char buffer[BUFFER_SIZE];
+extern void rout_body_clean(rout_body_t entry);
 
 /*An array of File descriptors which the server process
  * is maintaining in order to talk with the connected clients.
@@ -119,11 +120,8 @@ compose_rout_sync_msg(rout_body_t *msg)
     memset(buffer, 0, sizeof(buffer));
     char *ptr = buffer;
     strcpy(ptr, "21,");
-    strcat(ptr, msg -> destination);
-    strcat(ptr, ";");
-    strcat(ptr, msg -> gateway_ip);
-    strcat(ptr, ";");
-    strcat(ptr, msg -> oif);
+
+    memcpy(ptr + 3, msg, sizeof(rout_body_t));
 }
 
 void
@@ -174,9 +172,10 @@ int
 main(int argc, char *argv[])
 {
     rout_entry_t rout_head;
-    memset(rout_head.entry.destination, 0, sizeof(rout_head.entry.destination));
-    memset(rout_head.entry.gateway_ip, 0, sizeof(rout_head.entry.gateway_ip));
-    memset(rout_head.entry.oif, 0, sizeof(rout_head.entry.oif));
+    // memset(rout_head.entry.destination, 0, sizeof(rout_head.entry.destination));
+    // memset(rout_head.entry.gateway_ip, 0, sizeof(rout_head.entry.gateway_ip));
+    // memset(rout_head.entry.oif, 0, sizeof(rout_head.entry.oif));
+    rout_body_clean(rout_head.entry);
     rout_head.next = NULL;
 
     mac_entry_t mac_head;
@@ -284,7 +283,7 @@ main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
 
-            printf("Connection accepted from client\n");
+            //printf("Connection accepted from client\n");
 
             add_to_monitored_fd_set(data_socket);
 
@@ -301,13 +300,35 @@ main(int argc, char *argv[])
 
         }
         else if(FD_ISSET(0, &readfds)){
+
+            mac_body_t mac_entry;
+            char ip_addr[IP_SIZE];
+            
+            
+            memset(ip_addr, 0, IP_SIZE);
+            memset(mac_entry.mac, 0, MAC_SIZE);
+            //puts("Type MAC address here:");
+            
+            int op_code;
+           do
+           {
+                memset(buffer, 0, BUFFER_SIZE);
+                ret = read(0, buffer, BUFFER_SIZE);
+           } while (!(op_code = check_mac_msg(buffer, mac_entry.mac, ip_addr, BUFFER_SIZE)));
+           
+            
+            printf("Mac is %s and Ip is %s\n", mac_entry.mac, ip_addr);
+
+            create_and_write_shared_memory(mac_entry.mac, ip_addr, IP_SIZE);
             memset(buffer, 0, BUFFER_SIZE);
             *buffer = '1';
-            ret = read(0, buffer + 1, BUFFER_SIZE - 1);
-            printf("Input read from console : %s\n", buffer);
-
+            *(buffer + 1) = op_code + '0';
+            *(buffer + 2) = ',';
+            
+            memcpy(buffer + 3, &mac_entry, sizeof(mac_body_t));
             if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
                 continue;
+            
             syncronize_nw_table(buffer, BUFFER_SIZE);
 
         }
@@ -356,12 +377,11 @@ main(int argc, char *argv[])
                     }
                     else
                     ;
-                    
 
-                    
                     /*go to select() and block*/
                 }
             }
+            //if(buffer[0] != '')
             syncronize_nw_table(buffer, BUFFER_SIZE);
             continue;
 

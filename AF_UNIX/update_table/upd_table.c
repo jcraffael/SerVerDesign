@@ -90,42 +90,11 @@ delete_rout_entry(rout_body_t *msg, rout_entry_t *head){
 int
 rout_msg_parse(char *buffer, rout_body_t *rout, int b_size)
 {
-    //printf("The received buffer is: %s\n", buffer);
-
-    int msg_integrity = 0;
-    //int b_size = sizeof *buffer;
-    char rest[b_size], *ptr = rest;
-    memcpy(rest, buffer, b_size);
-    char *opcode = strtok_r(rest, ",", &ptr);
-    char *token = strtok_r(ptr, ",", &ptr);
-    //data ->op_code = strtol(opcode, NULL, 0);
-    int op_code = atoi(opcode);
-    //printf("op code is %d\n", op_code);
-    char *tk = strtok_r(token, ";", &ptr);
-    if(fill_entry(&rout -> destination, tk))
-    {
-        if(op_code == DELETE)
-        {
-            msg_integrity = 1;
-            goto CHECK_MSG;
-        }
-
-        tk = strtok_r(ptr, ";", &ptr);
-
-        if(fill_entry(&rout ->gateway_ip, tk))
-        {
-            tk = strtok_r(ptr, ";", &ptr);
-            if(fill_entry(&rout ->oif, tk))
-                msg_integrity = 1;
-        }
-    }
-    
-    CHECK_MSG:
-    if(msg_integrity == 0)
-    {
-        puts("msg body corrupted.");
-        return 0;
-    }
+    char opcode = *buffer;
+    //sscanf(buffer, "%c,%s;%s;%s", opcode, &rout -> destination, &rout ->gateway_ip, &rout ->oif);
+    *rout = *(rout_body_t *)(buffer + 2);
+    printf("New entry is %s, %s and %s\n", rout->destination, rout->gateway_ip, rout->oif);
+    int op_code = opcode - '0';
     return op_code;
 }
 
@@ -136,7 +105,6 @@ update_rout_table(rout_entry_t *head, char *buffer, int b_size)
     rout_body_t *rout = malloc(sizeof(rout_body_t));
     memset(rout, 0, sizeof(rout_body_t));
 
-    
     switch(rout_msg_parse(buffer, rout, b_size)) {
         /* Send result. */
         case ERR:
@@ -162,7 +130,8 @@ mac_entry_t *
 check_mac_entry(mac_body_t *msg, mac_entry_t *head){
     
     mac_entry_t *n_entry = head -> next;
-    while(n_entry)
+    //puts("Check mac entry.");
+    while(n_entry != NULL)
     {
         if(strcmp(n_entry ->entry.mac, msg -> mac) == 0)
             return n_entry;
@@ -175,14 +144,16 @@ check_mac_entry(mac_body_t *msg, mac_entry_t *head){
 
 int
 create_mac_entry(mac_body_t *msg, mac_entry_t *head){
-
     mac_entry_t *t_entry = check_mac_entry(msg, head);
-    if(t_entry)
-        return 0;
+    if(t_entry != NULL)
+    {
+       puts("Duplicated entry");
+       return 0;
+    }
     else{
 
-        mac_entry_t *new_entry = malloc(sizeof *new_entry);
-        memcpy(&(new_entry -> entry), msg, sizeof *new_entry);
+        mac_entry_t *new_entry = malloc(sizeof(mac_entry_t));
+        memcpy(&(new_entry -> entry), msg, sizeof(mac_body_t));
         new_entry ->next = NULL;
         mac_entry_t *n_entry = head -> next;
         if(n_entry == NULL)
@@ -232,44 +203,10 @@ delete_mac_entry(mac_body_t *msg, mac_entry_t *head){
 int
 mac_msg_parse(char *buffer, mac_body_t *mac, int b_size)
 {
-    int msg_integrity = 0;
-    //int b_size = sizeof *buffer;
-    char rest[b_size], *ptr = rest;
-    memcpy(rest, buffer, b_size);
-
-    char *opcode = strtok_r(rest, ",", &ptr);
-    char *token = strtok_r(ptr, ",", &ptr);
-    //data ->op_code = strtol(opcode, NULL, 0);
-    int op_code = atoi(opcode);
     
-    if(fill_entry(&mac -> mac, token))
-        msg_integrity = 1;
-
-    // char *tk = strtok_r(token, ";", &ptr);
-    // if(fill_entry(&mac -> mac, tk))
-    // {
-    //     if(op_code == DELETE)
-    //     {
-    //         msg_integrity = 1;
-    //         goto CHECK_MSG;
-    //     }
-
-    //     tk = strtok_r(ptr, ";", &ptr);
-
-    //     if(fill_entry(&rout ->gateway_ip, tk))
-    //     {
-    //         tk = strtok_r(ptr, ";", &ptr);
-    //         if(fill_entry(&rout ->oif, tk))
-    //             msg_integrity = 1;
-    //     }
-    // }
-    
-    //CHECK_MSG:
-    if(msg_integrity == 0)
-    {
-        puts("msg body corrupted.");
-        return 0;
-    }
+    int op_code = *buffer - '0';
+    memcpy(mac, buffer + 2, sizeof(mac_body_t));
+    //printf("The opcode is %d, mac is %s\n", op_code, mac);
     return op_code;
 }
 
@@ -279,7 +216,6 @@ update_mac_table(mac_entry_t *head, char *buffer, int b_size)
 
     mac_body_t *mac = malloc(sizeof(mac_body_t));
     memset(mac, 0, sizeof(mac_body_t));
-
     
     switch(mac_msg_parse(buffer, mac, b_size)) {
         /* Send result. */
@@ -288,12 +224,12 @@ update_mac_table(mac_entry_t *head, char *buffer, int b_size)
         case CREATE:
             create_mac_entry(mac, head);
             break;
-        case UPDATE:
-            update_mac_entry(mac, head);
-            break;
-        case DELETE:
-            delete_mac_entry(mac, head);
-            break;
+        // case UPDATE:
+        //     update_mac_entry(mac, head);
+        //     break;
+        // case DELETE:
+        //     delete_mac_entry(mac, head);
+        //     break;
         default:
             break;
     }

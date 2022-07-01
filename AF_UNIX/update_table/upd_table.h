@@ -14,8 +14,8 @@ typedef enum{
     L3
 }LAYER;
 
-typedef int(* MacTableFunc)(mac_entry_t *head, char *buffer);
-typedef int(* RoutTableFunc)(rout_entry_t *head, char *buffer);
+//typedef int(* MacTableFunc)(mac_entry_t *head, char *buffer);
+//typedef int(* RoutTableFunc)(rout_entry_t *head, char *buffer);
 
 // typedef struct _l2_struct{
 
@@ -52,8 +52,8 @@ typedef int(* RoutTableFunc)(rout_entry_t *head, char *buffer);
 // int
 // delete_entry(rout_body_t *msg, rout_entry_t *head);
 
-// int
-// fill_entry(char *str1, char *str2);
+int
+fill_entry(char *str1, char *str2);
 
 int
 update_rout_table(rout_entry_t *head, char *buffer, int b_size);

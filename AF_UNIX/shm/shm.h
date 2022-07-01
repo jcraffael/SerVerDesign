@@ -1,4 +1,5 @@
-
+#ifndef SHM_H
+#define SHM_H
 
 int
 read_from_shared_memory (char *mmap_key,
@@ -10,3 +11,6 @@ read_from_shared_memory (char *mmap_key,
 int create_and_write_shared_memory (char *mmap_key, 
                                     char *value, 
                                     unsigned int size);
+
+                        
+#endif 

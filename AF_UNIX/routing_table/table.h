@@ -1,19 +1,25 @@
-#ifndef TABLE
-#define TABLE
+#ifndef TABLE_H
+#define TABLE_H
 
+
+#define BUFFER_SIZE 128
+#define CIDR_SIZE 20
+#define MAC_SIZE 20
+#define IP_SIZE 16
+#define OIF_SIZE 10
 
 typedef struct _rout_body{
 
-    char destination[20];
+    char destination[CIDR_SIZE];
     //char mask;
-    char gateway_ip[16];
-    char oif[10];
+    char gateway_ip[IP_SIZE];
+    char oif[OIF_SIZE];
 
 }rout_body_t;
 
 typedef struct _mac_body{
 
-    char mac[20];
+    char mac[MAC_SIZE];
 }mac_body_t;
 
 // typedef union{
