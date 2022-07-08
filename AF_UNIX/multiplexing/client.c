@@ -6,6 +6,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include "../routing_table/table.h"
 #include "../update_table/upd_table.h"
 
@@ -18,6 +19,8 @@ check_rout_msg(char *buffer, char *ip_dev, char *ip_gw, char *port, int b_size);
 extern void 
 rout_body_clean(rout_body_t entry);
 
+rout_entry_t rout_head;
+mac_entry_t mac_head;
 pthread_t pthread1;
 pthread_t pthread2;
 
@@ -28,6 +31,14 @@ struct arg_struct {
     
 };
 
+void
+signal_handler()
+{
+    puts("Flush all tables!");
+    flush_mac_table(&mac_head);
+    flush_rout_table(&rout_head);
+}
+
 
 static void *
 tbsync_fn_callback(void *arg) {
@@ -37,9 +48,11 @@ tbsync_fn_callback(void *arg) {
     
     int data_socket = args -> data_socket;
 
-    mac_entry_t *mac_head = &(args -> table_head -> mac_table_entry);
-    if(mac_head -> next != NULL) 
-        mac_head -> next = NULL;
+    //mac_entry_t *mac_head = &(args -> table_head -> mac_table_entry);
+    if(mac_head.next != NULL) 
+        mac_head.next = NULL;
+
+    //rout_entry_t *rout_head = &(args -> table_head -> rout_table_entry);
     
     char buffer[BUFFER_SIZE];
 
@@ -61,47 +74,56 @@ tbsync_fn_callback(void *arg) {
 
         if(buffer[0] - '0' == L3)
         {
-            rout_entry_t *rout_head = &(args -> table_head -> rout_table_entry);
+            //rout_entry_t *rout_head = &(args -> table_head -> rout_table_entry);
 
             //printf("Received buffer is %s\n", buffer + 1);
-            if(update_rout_table(rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
+            if(update_rout_table(&rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
                 continue;
 
             if(sent_pid == 0)
             {
                 memset(buffer, 0, BUFFER_SIZE);
-                memcpy(buffer, pid, sizeof(int));
+                sprintf(buffer, "%d", pid);
+
                 write(data_socket, buffer, sizeof(buffer));
                 sent_pid = 1;
             }
-            puts("Updated rout table is:");
-            rout_entry_t* next_node = rout_head -> next;
             
-            while(next_node)
-            {
-                printf("%s  %s  %s\n", next_node -> entry.destination, next_node -> entry.gateway_ip, next_node -> entry.oif);
-                next_node = next_node -> next;
-            }
         }
         else if(buffer[0] - '0' == L2)
         {
             //mac_entry_t *mac_head = &(args -> table_head -> mac_table_entry);
 
-            if(update_mac_table(mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
+            if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
                  continue;
 
+        }
+        else if(strcmp(buffer, "st") == 0)
+        {
             puts("Updated mac table is:");
-            mac_entry_t* next_node = mac_head -> next;
+            mac_entry_t* next_node = mac_head.next;
             
             while(next_node)
             {
                 printf("%s\n", next_node -> entry.mac);
                 next_node = next_node -> next;
             }
+
+            puts("Updated rout table is:");
+            
+            rout_entry_t* n_node = rout_head.next;
+            
+            while(n_node)
+            {
+                printf("%s  %s  %s\n", n_node -> entry.destination, n_node -> entry.gateway_ip, n_node -> entry.oif);
+                n_node = n_node -> next;
+            }
         }
-        else if(buffer[0] - '0' == 4)
+        else if(strcmp(buffer, "fa") == 0)
         {
             ;
+            
+            
         }
         else
         {
@@ -110,6 +132,8 @@ tbsync_fn_callback(void *arg) {
             exit(EXIT_FAILURE);
             //continue;
         }
+
+        signal(SIGUSR1, signal_handler);
         
     }
 }
@@ -151,24 +175,18 @@ send_fn_callback(void *arg)
         
         printf("\nNo of bytes sent = %d, buffer size = %ld\n", ret, sizeof(buffer)); 
 
-        //pthread_mutex_unlock(&lock);
 
     } 
 }
 void
 routingtb_syn_thread(/*int data_socket*/) {
 
-    // pthread_attr_t attr;
-
-	// pthread_attr_init(&attr);
-	// pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED /*PTHREAD_CREATE_JOINABLE*/);
-
     char buffer[BUFFER_SIZE];
-    rout_entry_t rout_head;
+    
     rout_body_clean(rout_head.entry);
     rout_head.next = NULL;
     
-    mac_entry_t mac_head;
+    
     memset(mac_head.entry.mac, 0, MAC_SIZE);
     mac_head.next = NULL;
 

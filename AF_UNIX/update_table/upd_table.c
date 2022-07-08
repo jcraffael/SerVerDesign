@@ -241,7 +241,7 @@ update_mac_table(mac_entry_t *head, char *buffer, int b_size)
 void
 create_pid_entry(pid_entry_t *head, char *buffer)
 {
-    int pid = (int)buffer;
+    int pid = atoi(buffer);
     printf("The received pid is %d\n", pid);
     
     pid_entry_t *t_entry = head;
@@ -255,7 +255,7 @@ create_pid_entry(pid_entry_t *head, char *buffer)
 }
 
 void
-flush_pid_entry(pid_entry_t *head)
+flush_pid_table(pid_entry_t *head)
 {
     //pid_entry_t *t_entry = head;
     while(head -> next != NULL)
@@ -263,5 +263,31 @@ flush_pid_entry(pid_entry_t *head)
         pid_entry_t *t_entry = head -> next;
         head -> next = t_entry -> next;
         free(t_entry);
+    }
+}
+
+void
+flush_mac_table(mac_entry_t *mac_head)
+{
+    while(mac_head -> next)
+    {
+        mac_entry_t* next_node = mac_head -> next;
+        mac_head -> next = next_node -> next;
+        memset(next_node -> entry.mac, 0, MAC_SIZE);
+        free(next_node);
+    }
+        
+            
+}
+
+void
+flush_rout_table(rout_entry_t *rout_head)
+{
+    while(rout_head -> next)
+    {
+        rout_entry_t* next_node = rout_head -> next;
+        rout_head -> next = next_node -> next;
+        rout_body_clean(next_node -> entry);
+        free(next_node);
     }
 }

@@ -144,13 +144,12 @@ check_mac_msg(char *buffer, char *mac_addr, char *ip_addr, int b_size)
     char rest[b_size], *ptr = rest;
     memset(rest, 0, b_size);
     memcpy(rest, buffer, b_size);
-    int i = 0;
-    for(; *(rest + i) != '\n'; i++)
-    ;
-    *(rest + i) = '\0';
+    //int i = 0;
+    // for(; *(rest + i) != '\n'; i++)
+    // ;
+    // *(rest + i) = '\0';
     char *opcode = strtok_r(rest, ",", &ptr);
-    //char *token = strtok_r(ptr, ",", &ptr);
-    //data ->op_code = strtol(opcode, NULL, 0);
+
     int op_code = atoi(opcode);
     if(op_code <= 0 || op_code > 3)
     {
