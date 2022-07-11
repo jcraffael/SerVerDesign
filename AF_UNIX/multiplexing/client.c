@@ -113,9 +113,7 @@ tbsync_fn_callback(void *arg) {
                          linked_IP, IP_SIZE, IP_SIZE);
                 printf("the linked IP is %s\n", linked_IP);
                 next_node = next_node -> next;
-            }
-
-            
+            }            
             puts("Updated rout table is:");
             
             rout_entry_t* n_node = rout_head.next;
@@ -172,11 +170,8 @@ send_fn_callback(void *arg)
             perror("write");
             break;
         }
-
         
         printf("\nNo of bytes sent = %d, buffer size = %ld\n", ret, sizeof(buffer)); 
-
-
     } 
 }
 void
