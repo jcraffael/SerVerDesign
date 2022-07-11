@@ -7,6 +7,7 @@
 #define MAC_SIZE 20
 #define IP_SIZE 16
 #define OIF_SIZE 10
+#define PID_SIZE 6
 
 typedef struct _rout_body{
 

@@ -33,7 +33,6 @@ int check_ip_msg_format(char *str)
 
     struct sockaddr_in sa;
     struct in_addr addr;
-    printf("The string is %s\n", str);
     int result = inet_pton(AF_INET, str, &addr);
     if(result)
         return IP;
@@ -55,8 +54,6 @@ int check_ip_msg_format(char *str)
             //return CIDR;
     }
 
-    //printf("Result is %d, string is %s\n", result, str);
-    
     return 0;
 }
 

@@ -168,36 +168,36 @@ create_mac_entry(mac_body_t *msg, mac_entry_t *head){
     }
 }
 
-int
-update_mac_entry(mac_body_t *msg, mac_entry_t *head){
+// int
+// update_mac_entry(mac_body_t *msg, mac_entry_t *head){
 
-    mac_entry_t *t_entry = check_mac_entry(msg, head);
-    if(t_entry)
-    {
-        memcpy(&(t_entry -> entry), msg, sizeof(mac_body_t));
-        return 1;
-    }
-    return 0;
-}
+//     mac_entry_t *t_entry = check_mac_entry(msg, head);
+//     if(t_entry)
+//     {
+//         memcpy(&(t_entry -> entry), msg, sizeof(mac_body_t));
+//         return 1;
+//     }
+//     return 0;
+// }
 
-int
-delete_mac_entry(mac_body_t *msg, mac_entry_t *head){
+// int
+// delete_mac_entry(mac_body_t *msg, mac_entry_t *head){
 
-    mac_entry_t *t_entry = check_mac_entry(msg, head);
-    if(t_entry == NULL)
-        return 0;
-    else
-    {
-        mac_entry_t *n_entry = head;
-        while(n_entry -> next != t_entry)
-        {n_entry = n_entry -> next;}
+//     mac_entry_t *t_entry = check_mac_entry(msg, head);
+//     if(t_entry == NULL)
+//         return 0;
+//     else
+//     {
+//         mac_entry_t *n_entry = head;
+//         while(n_entry -> next != t_entry)
+//         {n_entry = n_entry -> next;}
 
-        n_entry -> next = t_entry -> next;
-        free(t_entry);
-        return 1;
-    }
+//         n_entry -> next = t_entry -> next;
+//         free(t_entry);
+//         return 1;
+//     }
     
-}
+// }
 
 
 int

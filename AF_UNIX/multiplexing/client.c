@@ -9,6 +9,7 @@
 #include <signal.h>
 #include "../routing_table/table.h"
 #include "../update_table/upd_table.h"
+#include "../shm/shm.h"
 
 #define SOCKET_NAME "/tmp/DemoSocket"
 
@@ -105,10 +106,16 @@ tbsync_fn_callback(void *arg) {
             
             while(next_node)
             {
-                printf("%s\n", next_node -> entry.mac);
+                printf("%s; ", next_node -> entry.mac);
+                
+                char linked_IP[IP_SIZE];
+                read_from_shared_memory (next_node -> entry.mac, 
+                         linked_IP, IP_SIZE, IP_SIZE);
+                printf("the linked IP is %s\n", linked_IP);
                 next_node = next_node -> next;
             }
 
+            
             puts("Updated rout table is:");
             
             rout_entry_t* n_node = rout_head.next;
@@ -118,12 +125,6 @@ tbsync_fn_callback(void *arg) {
                 printf("%s  %s  %s\n", n_node -> entry.destination, n_node -> entry.gateway_ip, n_node -> entry.oif);
                 n_node = n_node -> next;
             }
-        }
-        else if(strcmp(buffer, "fa") == 0)
-        {
-            ;
-            
-            
         }
         else
         {
@@ -147,7 +148,7 @@ send_fn_callback(void *arg)
     //printf("Data socket of sending th in the handle is %d\n", data_socket);
     char buffer[BUFFER_SIZE];
     /* Send arguments. */
-    puts("Send thread fn.");
+    
     while(1){
         memset(buffer, 0, BUFFER_SIZE);
 
@@ -201,14 +202,6 @@ routingtb_syn_thread(/*int data_socket*/) {
         perror("socket");
         exit(EXIT_FAILURE);
     }
-    else
-        printf("Data socket of syncing th is %d\n", data_socket);
-
-    /*
-     * For portability clear the whole structure, since some
-     * implementations have additional (nonstandard) fields in
-     * the structure.
-     * */
 
     memset(&addr, 0, sizeof(struct sockaddr_un));
 
@@ -260,12 +253,6 @@ routingtb_syn_thread(/*int data_socket*/) {
 void
 tb_send_thread(/*int data_socket*/) {
 
-	
-    // pthread_attr_t attr;
-
-	// pthread_attr_init(&attr);
-	// pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED /*PTHREAD_CREATE_JOINABLE*/);
-
     struct sockaddr_un addr;
     int ret;
 
@@ -277,15 +264,7 @@ tb_send_thread(/*int data_socket*/) {
         perror("socket");
         exit(EXIT_FAILURE);
     }
-    else
-        printf("Data socket of sending th is %d\n", data_socket);
-
-    /*
-     * For portability clear the whole structure, since some
-     * implementations have additional (nonstandard) fields in
-     * the structure.
-     * */
-
+  
     memset(&addr, 0, sizeof(struct sockaddr_un));
 
     /* Connect socket to socket address */
@@ -316,7 +295,7 @@ tb_send_thread(/*int data_socket*/) {
  	 * do not set global 'errno' variable */
 
     
-    puts("Create send thread.");
+    puts("Create sending thread.");
     int rc = pthread_create(&pthread1, 
                 NULL,
                 send_fn_callback,
@@ -341,15 +320,6 @@ main(int argc, char *argv[])
     pthread_join(pthread1, NULL);
     pthread_join(pthread2, NULL);
 
-
-
-   
-
-    /* Ensure buffer is 0-terminated. */
-
-    // buffer[BUFFER_SIZE - 1] = 0;
-
-    // printf("Result = %s\n", buffer);
 
     // /* Close socket. */
 

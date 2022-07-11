@@ -288,7 +288,7 @@ main(int argc, char *argv[])
     /*initialize*/
     memset(&name, 0, sizeof(struct sockaddr_un));
 
-    /*Specify the socket Cridentials*/
+    /*Specify the socket Credentials*/
     name.sun_family = AF_UNIX;
     strncpy(name.sun_path, SOCKET_NAME, sizeof(name.sun_path) - 1);
 
@@ -326,7 +326,7 @@ main(int argc, char *argv[])
      * and running and shold never go down. Have you ever seen Facebook Or Google
      * page failed to load ??*/
     for (;;) {
-
+        
         refresh_fd_set(&readfds); /*Copy the entire monitored FDs to readfds*/
         /* Wait for incoming connection. */
         printf("Waiting on select() sys call\nOr press enter to select\n");
@@ -340,7 +340,7 @@ main(int argc, char *argv[])
         if(FD_ISSET(connection_socket, &readfds)){
 
             /*Data arrives on Master socket only when new client connects with the server (that is, 'connect' call is invoked on client side)*/
-            printf("New connection recieved recvd, accept the connection\n");
+            printf("New connection recieved, accept the connection\n");
 
             data_socket = accept(connection_socket, NULL, NULL);
 
@@ -360,7 +360,6 @@ main(int argc, char *argv[])
             }
             if(mac_head.next != NULL) 
             {
-                
                 brdcast_mac_table(&mac_head, data_socket);
             }
 
@@ -392,7 +391,7 @@ main(int argc, char *argv[])
             for(i = 0; i < MAX_CLIENT_SUPPORTED; i++){
                 
                 if(FD_ISSET(monitored_fd_set[i], &readfds)){
-                    //comm_socket_fd = monitored_fd_set[i];
+                    comm_socket_fd = monitored_fd_set[i];
 
                     /*Prepare the buffer to recv the data*/
                     memset(buffer, 0, BUFFER_SIZE);
@@ -403,38 +402,27 @@ main(int argc, char *argv[])
                     printf("Waiting for data from the client\n");
                     ret = read(monitored_fd_set[i], buffer, BUFFER_SIZE);
 
-                    if (ret == -1) {
+                    if (ret <= 0) {
                         perror("read");
                         //exit(EXIT_FAILURE);
                         close(comm_socket_fd);
                         remove_from_monitored_fd_set(comm_socket_fd);
                         continue;
                     }
-                    
-                    if( buffer[0] == 0)
-                    {
-                        /* Close socket. */
-                        close(comm_socket_fd);
-                        //client_result[i] = 0; 
-                        remove_from_monitored_fd_set(comm_socket_fd);
-                        continue;
-                    }
-                    
-                    
                     /* Add received summand. */
-                    if(buffer[0] - '0' == L3 && strlen(buffer) > 6)
+                    if(buffer[0] - '0' == L3 && strlen(buffer) > PID_SIZE)
                     {
                         if(update_rout_table(&rout_head, buffer + 1, sizeof(buffer) - 1) == 0)
                             continue;
                         syncronize = 1;
                     }
-                    else if(buffer[0] - '0' == L2 && strlen(buffer) > 6)
+                    else if(buffer[0] - '0' == L2 && strlen(buffer) > PID_SIZE)
                     {
                         if(update_mac_table(&mac_head, buffer + 1, sizeof(buffer) - 1) == 0)
                             continue;
                         syncronize = 1;
                     }
-                    else if(strlen(buffer) <= 6)
+                    else if(strlen(buffer) <= PID_SIZE)
                     {
                         create_pid_entry(&pid_head, buffer);
                     }
@@ -445,7 +433,6 @@ main(int argc, char *argv[])
             if(syncronize)
                 syncronize_nw_table(buffer, BUFFER_SIZE);
             continue;
-
         }
     } /*go to select() and block*/
 
